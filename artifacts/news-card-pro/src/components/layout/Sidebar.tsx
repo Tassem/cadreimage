@@ -1,7 +1,14 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Image as ImageIcon, History, Layers, KeySquare, LogOut, Bot } from "lucide-react";
+import { LayoutDashboard, Image as ImageIcon, History, Layers, KeySquare, LogOut, Bot, CreditCard } from "lucide-react";
 import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+
+const PLAN_LABELS: Record<string, string> = {
+  free: "مجاني",
+  starter: "المبتدئ",
+  pro: "الاحترافي",
+  agency: "الوكالة",
+};
 
 const navigation = [
   { name: "لوحة التحكم", href: "/dashboard", icon: LayoutDashboard },
@@ -10,6 +17,7 @@ const navigation = [
   { name: "القوالب", href: "/templates", icon: Layers },
   { name: "مفاتيح API", href: "/keys", icon: KeySquare },
   { name: "بوت تيليقرام", href: "/telegram", icon: Bot },
+  { name: "باقتي", href: "/subscription", icon: CreditCard },
 ];
 
 export function Sidebar() {
@@ -65,7 +73,7 @@ export function Sidebar() {
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
             <span className="text-sm font-medium">{user?.name || "المستخدم"}</span>
-            <span className="text-xs text-sidebar-foreground/60">{user?.plan === "pro" ? "باقة Pro" : "باقة مجانية"}</span>
+            <span className="text-xs text-sidebar-foreground/60">باقة {PLAN_LABELS[user?.plan ?? "free"] ?? user?.plan}</span>
           </div>
           <button
             onClick={handleLogout}

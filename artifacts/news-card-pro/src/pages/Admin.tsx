@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
+type PlanSlug = "free" | "starter" | "pro" | "agency";
 interface AdminUser {
   id: number;
   name: string;
   email: string;
-  plan: "free" | "pro";
+  plan: PlanSlug;
   imagesToday: number;
   totalImages: number;
   isAdmin: boolean;
@@ -27,6 +28,22 @@ interface AdminImage {
   createdAt: string;
   userName: string | null;
   userEmail: string | null;
+}
+interface AdminPlan {
+  id: number;
+  name: string;
+  slug: string;
+  priceMonthly: number;
+  priceYearly: number;
+  cardsPerDay: number;
+  maxTemplates: number;
+  maxSavedDesigns: number;
+  apiAccess: boolean;
+  telegramBot: boolean;
+  overlayUpload: boolean;
+  customWatermark: boolean;
+  isActive: boolean;
+  sortOrder: number;
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────
@@ -79,10 +96,13 @@ export default function Admin() {
   const [stats, setStats]           = useState<Stats | null>(null);
   const [users, setUsers]           = useState<AdminUser[]>([]);
   const [images, setImages]         = useState<AdminImage[]>([]);
-  const [activeTab, setActiveTab]   = useState<"stats" | "users" | "images">("stats");
+  const [activeTab, setActiveTab]   = useState<"stats" | "users" | "images" | "plans">("stats");
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [adminPlans, setAdminPlans] = useState<AdminPlan[]>([]);
+  const [editingPlan, setEditingPlan] = useState<AdminPlan | null>(null);
+  const [planSaving, setPlanSaving] = useState(false);
 
   const authHeaders = useCallback(() => ({
     "Content-Type": "application/json",
@@ -92,20 +112,22 @@ export default function Admin() {
   // Verify token and load data
   const loadData = useCallback(async (t: string) => {
     try {
-      const [statsRes, usersRes, imagesRes] = await Promise.all([
+      const [statsRes, usersRes, imagesRes, plansRes] = await Promise.all([
         fetch("/api/admin/stats", { headers: { Authorization: `Bearer ${t}` } }),
         fetch("/api/admin/users", { headers: { Authorization: `Bearer ${t}` } }),
         fetch("/api/admin/images", { headers: { Authorization: `Bearer ${t}` } }),
+        fetch("/api/admin/plans", { headers: { Authorization: `Bearer ${t}` } }),
       ]);
       if (statsRes.status === 403 || statsRes.status === 401) {
         localStorage.removeItem("ncg_admin_token");
         setToken("");
         return;
       }
-      const [s, u, i] = await Promise.all([statsRes.json(), usersRes.json(), imagesRes.json()]);
+      const [s, u, i, p] = await Promise.all([statsRes.json(), usersRes.json(), imagesRes.json(), plansRes.json()]);
       setStats(s);
       setUsers(u);
       setImages(i);
+      if (Array.isArray(p)) setAdminPlans(p);
     } catch { /* silent */ }
   }, []);
 
@@ -137,7 +159,7 @@ export default function Admin() {
   };
 
   // Update user plan
-  const handlePlanChange = async (userId: number, plan: "free" | "pro") => {
+  const handlePlanChange = async (userId: number, plan: PlanSlug) => {
     setUpdatingId(userId);
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
@@ -147,6 +169,30 @@ export default function Admin() {
       });
       if (res.ok) setUsers(prev => prev.map(u => u.id === userId ? { ...u, plan } : u));
     } finally { setUpdatingId(null); }
+  };
+
+  // Save plan (create or update)
+  const handleSavePlan = async () => {
+    if (!editingPlan) return;
+    setPlanSaving(true);
+    try {
+      const isNew = editingPlan.id === -1;
+      const url = isNew ? "/api/admin/plans" : `/api/admin/plans/${editingPlan.id}`;
+      const method = isNew ? "POST" : "PUT";
+      const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(editingPlan) });
+      if (res.ok) {
+        const saved = await res.json();
+        if (isNew) setAdminPlans(prev => [...prev, saved]);
+        else setAdminPlans(prev => prev.map(p => p.id === saved.id ? saved : p));
+        setEditingPlan(null);
+      }
+    } finally { setPlanSaving(false); }
+  };
+
+  const handleDeletePlan = async (id: number) => {
+    if (!confirm("هل أنت متأكد من حذف هذه الباقة؟")) return;
+    const res = await fetch(`/api/admin/plans/${id}`, { method: "DELETE", headers: authHeaders() });
+    if (res.ok) setAdminPlans(prev => prev.filter(p => p.id !== id));
   };
 
   // Toggle admin
@@ -262,10 +308,11 @@ export default function Admin() {
         )}
 
         {/* Tab nav */}
-        <div style={{ display: "flex", gap: "8px", marginBottom: "20px", borderBottom: `1px solid ${BORDER}`, paddingBottom: "12px" }}>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "20px", borderBottom: `1px solid ${BORDER}`, paddingBottom: "12px", flexWrap: "wrap" }}>
           <button style={tabBtnStyle("stats")}  onClick={() => setActiveTab("stats")}>📊 إحصاءات</button>
           <button style={tabBtnStyle("users")}  onClick={() => setActiveTab("users")}>👥 المستخدمون {users.length ? `(${users.length})` : ""}</button>
           <button style={tabBtnStyle("images")} onClick={() => setActiveTab("images")}>🖼️ الصور الأخيرة</button>
+          <button style={tabBtnStyle("plans")}  onClick={() => setActiveTab("plans")}>💎 الباقات {adminPlans.length ? `(${adminPlans.length})` : ""}</button>
         </div>
 
         {/* ── STATS TAB ── */}
@@ -339,14 +386,17 @@ export default function Admin() {
                         <div style={{ fontSize: "11px", color: MUTED, fontFamily: "monospace" }}>{u.email}</div>
                       </td>
                       <td style={{ padding: "12px 14px" }}>
-                        <span style={{
-                          padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700,
-                          background: u.plan === "pro" ? "rgba(139,92,246,0.15)" : "rgba(100,116,139,0.15)",
-                          color: u.plan === "pro" ? "#c4b5fd" : MUTED,
-                          border: `1px solid ${u.plan === "pro" ? "rgba(139,92,246,0.3)" : BORDER}`,
-                        }}>
-                          {u.plan === "pro" ? "⭐ Pro" : "Free"}
-                        </span>
+                        {(() => {
+                          const pc: Record<string,string> = { free:"rgba(100,116,139,0.15)", starter:"rgba(59,130,246,0.15)", pro:"rgba(139,92,246,0.15)", agency:"rgba(245,158,11,0.15)" };
+                          const tc: Record<string,string> = { free:MUTED, starter:"#93c5fd", pro:"#c4b5fd", agency:AMBER };
+                          const bc: Record<string,string> = { free:BORDER, starter:"rgba(59,130,246,0.3)", pro:"rgba(139,92,246,0.3)", agency:"rgba(245,158,11,0.3)" };
+                          const labels: Record<string,string> = { free:"Free", starter:"Starter", pro:"⭐ Pro", agency:"🏢 Agency" };
+                          return (
+                            <span style={{ padding:"3px 10px", borderRadius:"20px", fontSize:"11px", fontWeight:700, background:pc[u.plan]??pc.free, color:tc[u.plan]??MUTED, border:`1px solid ${bc[u.plan]??BORDER}` }}>
+                              {labels[u.plan]??u.plan}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td style={{ padding: "12px 14px", color: TEXT, fontWeight: 600 }}>{u.totalImages}</td>
                       <td style={{ padding: "12px 14px", color: u.imagesToday > 0 ? GREEN : MUTED }}>{u.imagesToday}</td>
@@ -357,15 +407,21 @@ export default function Admin() {
                         }
                       </td>
                       <td style={{ padding: "12px 14px" }}>
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
                           {updatingId === u.id ? (
                             <span style={{ fontSize: "12px", color: MUTED }}>⏳</span>
                           ) : (
                             <>
-                              {u.plan === "free"
-                                ? <button onClick={() => handlePlanChange(u.id, "pro")} style={{ ...btn("rgba(139,92,246,0.15)", true), color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.3)" }}>→ Pro</button>
-                                : <button onClick={() => handlePlanChange(u.id, "free")} style={{ ...btn("rgba(100,116,139,0.15)", true), color: MUTED, border: `1px solid ${BORDER}` }}>→ Free</button>
-                              }
+                              <select
+                                value={u.plan}
+                                onChange={e => handlePlanChange(u.id, e.target.value as PlanSlug)}
+                                style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT, borderRadius: "6px", fontSize: "11px", padding: "3px 6px", fontFamily: "'Cairo', sans-serif", cursor: "pointer" }}
+                              >
+                                <option value="free">Free</option>
+                                <option value="starter">Starter</option>
+                                <option value="pro">Pro</option>
+                                <option value="agency">Agency</option>
+                              </select>
                               {!u.isAdmin
                                 ? <button onClick={() => handleAdminToggle(u.id, true)} style={{ ...btn("rgba(245,158,11,0.1)", true), color: AMBER, border: "1px solid rgba(245,158,11,0.2)" }}>🛡️</button>
                                 : <button onClick={() => handleAdminToggle(u.id, false)} style={{ ...btn("rgba(100,116,139,0.1)", true), color: MUTED }}>−🛡️</button>
@@ -417,6 +473,120 @@ export default function Admin() {
               ))}
               {images.length === 0 && (
                 <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "48px", color: MUTED }}>لا توجد صور بعد</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── PLANS TAB ── */}
+        {activeTab === "plans" && (
+          <div>
+            <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <p style={{ margin: 0, color: MUTED, fontSize: "13px" }}>إدارة باقات الاشتراك وحدودها</p>
+              <button
+                onClick={() => setEditingPlan({ id: -1, name: "", slug: "", priceMonthly: 0, priceYearly: 0, cardsPerDay: 10, maxTemplates: 5, maxSavedDesigns: 10, apiAccess: false, telegramBot: false, overlayUpload: false, customWatermark: false, isActive: true, sortOrder: 99 })}
+                style={{ ...btn(BLUE), padding: "8px 18px", fontSize: "13px" }}
+              >+ إضافة باقة جديدة</button>
+            </div>
+
+            {/* Edit / Create form */}
+            {editingPlan && (
+              <div style={{ ...card(), marginBottom: "24px" }}>
+                <h3 style={{ margin: "0 0 18px", fontSize: "15px", color: TEXT }}>{editingPlan.id === -1 ? "إنشاء باقة جديدة" : `تعديل باقة: ${editingPlan.name}`}</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px", marginBottom: "16px" }}>
+                  {[
+                    { label: "اسم الباقة", key: "name", type: "text" },
+                    { label: "Slug (معرّف)", key: "slug", type: "text" },
+                    { label: "السعر شهري ($)", key: "priceMonthly", type: "number" },
+                    { label: "السعر سنوي ($)", key: "priceYearly", type: "number" },
+                    { label: "بطاقات/يوم (-1 غير محدود)", key: "cardsPerDay", type: "number" },
+                    { label: "حد القوالب (-1 غير محدود)", key: "maxTemplates", type: "number" },
+                    { label: "حد التصاميم المحفوظة", key: "maxSavedDesigns", type: "number" },
+                    { label: "ترتيب العرض", key: "sortOrder", type: "number" },
+                  ].map(({ label, key, type }) => (
+                    <div key={key}>
+                      <label style={{ fontSize: "11px", color: MUTED, display: "block", marginBottom: "5px", direction: "rtl" }}>{label}</label>
+                      <input
+                        type={type} dir="ltr"
+                        value={editingPlan[key as keyof AdminPlan] as string | number}
+                        onChange={e => setEditingPlan(p => p ? { ...p, [key]: type === "number" ? Number(e.target.value) : e.target.value } : p)}
+                        style={{ width: "100%", background: BG, border: `1px solid ${BORDER}`, borderRadius: "6px", color: TEXT, padding: "8px 10px", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: "24px", marginBottom: "18px", flexWrap: "wrap" }}>
+                  {[
+                    { label: "وصول API", key: "apiAccess" },
+                    { label: "بوت تيليجرام", key: "telegramBot" },
+                    { label: "رفع تراكبات مخصصة", key: "overlayUpload" },
+                    { label: "علامة مائية مخصصة", key: "customWatermark" },
+                    { label: "نشطة", key: "isActive" },
+                  ].map(({ label, key }) => (
+                    <label key={key} style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", color: TEXT, direction: "rtl" }}>
+                      <input
+                        type="checkbox"
+                        checked={editingPlan[key as keyof AdminPlan] as boolean}
+                        onChange={e => setEditingPlan(p => p ? { ...p, [key]: e.target.checked } : p)}
+                        style={{ width: "16px", height: "16px", accentColor: BLUE, cursor: "pointer" }}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button onClick={handleSavePlan} disabled={planSaving} style={{ ...btn(BLUE), padding: "9px 22px" }}>
+                    {planSaving ? "⏳ جاري الحفظ..." : "💾 حفظ الباقة"}
+                  </button>
+                  <button onClick={() => setEditingPlan(null)} style={{ ...btn(SURFACE), border: `1px solid ${BORDER}`, color: MUTED, padding: "9px 18px" }}>إلغاء</button>
+                </div>
+              </div>
+            )}
+
+            {/* Plans grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+              {adminPlans.map(plan => {
+                const slugColors: Record<string,string> = { free:MUTED, starter:BLUE, pro:PURPLE, agency:AMBER };
+                const col = slugColors[plan.slug] || BLUE;
+                return (
+                  <div key={plan.id} style={{ ...card(), borderTop: `3px solid ${col}`, opacity: plan.isActive ? 1 : 0.5 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: "16px", color: TEXT }}>{plan.name}</div>
+                        <div style={{ fontSize: "11px", color: MUTED, fontFamily: "monospace" }}>{plan.slug}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 700, color: col, fontSize: "18px" }}>${plan.priceMonthly}<span style={{ fontSize: "11px", color: MUTED }}>/شهر</span></div>
+                        <div style={{ fontSize: "11px", color: MUTED }}>${plan.priceYearly}/سنة</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "14px" }}>
+                      {[
+                        { icon: "🖼️", label: "بطاقات/يوم", value: plan.cardsPerDay === -1 ? "غير محدود" : plan.cardsPerDay },
+                        { icon: "📋", label: "القوالب", value: plan.maxTemplates === -1 ? "غير محدود" : plan.maxTemplates },
+                        { icon: "💾", label: "التصاميم المحفوظة", value: plan.maxSavedDesigns === -1 ? "غير محدود" : plan.maxSavedDesigns },
+                      ].map(row => (
+                        <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                          <span style={{ color: MUTED }}>{row.icon} {row.label}</span>
+                          <span style={{ color: TEXT, fontWeight: 600 }}>{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
+                      {plan.apiAccess     && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px", background: "rgba(59,130,246,0.15)", color: "#93c5fd", border: "1px solid rgba(59,130,246,0.2)" }}>API</span>}
+                      {plan.telegramBot   && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px", background: "rgba(20,184,166,0.15)", color: "#5eead4", border: "1px solid rgba(20,184,166,0.2)" }}>Bot</span>}
+                      {plan.overlayUpload && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px", background: "rgba(139,92,246,0.15)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.2)" }}>Overlay</span>}
+                      {plan.customWatermark && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px", background: "rgba(245,158,11,0.15)", color: AMBER, border: "1px solid rgba(245,158,11,0.2)" }}>Watermark</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={() => setEditingPlan({ ...plan })} style={{ ...btn(SURFACE, true), border: `1px solid ${BORDER}`, color: MUTED, flex: 1 }}>✏️ تعديل</button>
+                      <button onClick={() => handleDeletePlan(plan.id)} style={{ ...btn("rgba(239,68,68,0.1)", true), color: RED, border: "1px solid rgba(239,68,68,0.2)" }}>🗑️</button>
+                    </div>
+                  </div>
+                );
+              })}
+              {adminPlans.length === 0 && (
+                <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "48px", color: MUTED }}>لا توجد باقات بعد</div>
               )}
             </div>
           </div>

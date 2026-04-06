@@ -9,6 +9,7 @@ import { eq, or } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { GenerateImageBody } from "@workspace/api-zod";
 import { generateCard } from "../lib/imageGenerator";
+import { checkDailyLimit, getPlanLimits } from "../middlewares/planGuard";
 
 /** Download a remote URL to a local temp file. Returns local file path or null on failure. */
 async function downloadUrlToFile(url: string, suffix: string): Promise<string | null> {
@@ -44,8 +45,6 @@ async function downloadUrlToFile(url: string, suffix: string): Promise<string | 
 
 const router: IRouter = Router();
 
-const FREE_DAILY_LIMIT = 10;
-
 router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   const user = req.user!;
 
@@ -56,9 +55,10 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     user.imagesToday = 0;
   }
 
-  // Check daily limit for free plan
-  if (user.plan === "free" && user.imagesToday >= FREE_DAILY_LIMIT) {
-    res.status(429).json({ error: `Daily limit of ${FREE_DAILY_LIMIT} images reached. Upgrade to Pro for unlimited.` });
+  // Check daily limit from plan
+  const { allowed, used, limit } = await checkDailyLimit(user.id, user.plan);
+  if (!allowed) {
+    res.status(429).json({ error: `وصلت إلى الحد اليومي (${limit} بطاقة). يرجى ترقية باقتك للحصول على مزيد.`, limit, used });
     return;
   }
 

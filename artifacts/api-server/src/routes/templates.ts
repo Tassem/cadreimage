@@ -3,6 +3,7 @@ import { db, templatesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { CreateTemplateBody, GetTemplateParams, UpdateTemplateParams, UpdateTemplateBody, DeleteTemplateParams } from "@workspace/api-zod";
+import { checkTemplateLimit } from "../middlewares/planGuard";
 
 const router: IRouter = Router();
 
@@ -20,6 +21,13 @@ router.post("/templates", requireAuth, async (req: AuthRequest, res): Promise<vo
   const parsed = CreateTemplateBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  // Check template limit for current plan
+  const { allowed, used, limit } = await checkTemplateLimit(req.userId!, req.user!.plan);
+  if (!allowed) {
+    res.status(429).json({ error: `وصلت إلى الحد الأقصى للقوالب (${limit}). يرجى ترقية باقتك.`, limit, used });
     return;
   }
 

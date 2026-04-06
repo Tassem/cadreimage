@@ -125,8 +125,9 @@ router.patch("/admin/users/:id", requireAdmin, async (req: AuthRequest, res): Pr
   const id = Number(req.params.id);
   const { plan, isAdmin } = req.body as { plan?: string; isAdmin?: boolean };
 
+  const VALID_PLANS = ["free", "starter", "pro", "agency"];
   const updates: Partial<typeof usersTable.$inferInsert> = {};
-  if (plan === "free" || plan === "pro") updates.plan = plan;
+  if (plan && VALID_PLANS.includes(plan)) updates.plan = plan;
   if (typeof isAdmin === "boolean") updates.isAdmin = isAdmin;
 
   if (Object.keys(updates).length === 0) {

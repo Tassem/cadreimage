@@ -9,6 +9,7 @@ import botRouter from "./bot";
 import designsRouter from "./designs";
 import adminRouter from "./admin";
 import settingsRouter from "./settings";
+import plansRouter from "./plans";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(botRouter);
 router.use(designsRouter);
 router.use(adminRouter);
 router.use(settingsRouter);
+router.use(plansRouter);
 
 export default router;
