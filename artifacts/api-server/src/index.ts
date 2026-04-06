@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startBot } from "./bot";
 import { closeBrowser } from "./lib/imageGenerator";
+import { getSetting } from "./routes/settings";
 
 const rawPort = process.env["PORT"];
 
@@ -44,11 +45,19 @@ process.on("uncaughtException", (err) => {
   logger.warn({ err }, "Uncaught exception — caught at top level");
 });
 
-// Start Telegram bot if token is provided
-if (process.env.TELEGRAM_BOT_TOKEN) {
-  startBot().catch((err) => {
-    logger.error({ err }, "Failed to start Telegram bot");
-  });
-} else {
-  logger.warn("TELEGRAM_BOT_TOKEN not set — Telegram bot disabled");
-}
+// Start Telegram bot: check env var first, then DB
+(async () => {
+  const envToken = process.env.TELEGRAM_BOT_TOKEN;
+  const dbToken  = envToken ? null : await getSetting("telegram_bot_token").catch(() => null);
+  const token    = envToken || dbToken;
+
+  if (token) {
+    // Temporarily set for bot.ts BOT_TOKEN constant
+    if (!envToken && dbToken) process.env.TELEGRAM_BOT_TOKEN = dbToken;
+    startBot().catch((err) => {
+      logger.error({ err }, "Failed to start Telegram bot");
+    });
+  } else {
+    logger.warn("TELEGRAM_BOT_TOKEN not set — Telegram bot disabled");
+  }
+})();

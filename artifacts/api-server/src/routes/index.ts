@@ -8,6 +8,7 @@ import photoRouter from "./photo";
 import botRouter from "./bot";
 import designsRouter from "./designs";
 import adminRouter from "./admin";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(photoRouter);
 router.use(botRouter);
 router.use(designsRouter);
 router.use(adminRouter);
+router.use(settingsRouter);
 
 export default router;

@@ -14,6 +14,7 @@ import History from "./pages/History";
 import Templates from "./pages/Templates";
 import Keys from "./pages/Keys";
 import Admin from "./pages/Admin";
+import TelegramBot from "./pages/TelegramBot";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/history"><ProtectedRoute component={History} /></Route>
       <Route path="/templates"><ProtectedRoute component={Templates} /></Route>
       <Route path="/keys"><ProtectedRoute component={Keys} /></Route>
+      <Route path="/telegram"><ProtectedRoute component={TelegramBot} /></Route>
       <Route path="/admin" component={Admin} />
       
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />

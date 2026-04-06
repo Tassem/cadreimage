@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Image as ImageIcon, History, Layers, KeySquare, LogOut } from "lucide-react";
+import { LayoutDashboard, Image as ImageIcon, History, Layers, KeySquare, LogOut, Bot } from "lucide-react";
 import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,7 @@ const navigation = [
   { name: "سجل البطاقات", href: "/history", icon: History },
   { name: "القوالب", href: "/templates", icon: Layers },
   { name: "مفاتيح API", href: "/keys", icon: KeySquare },
+  { name: "بوت تيليقرام", href: "/telegram", icon: Bot },
 ];
 
 export function Sidebar() {

@@ -408,9 +408,10 @@ async function buildPendingCard(parsed: ParsedMessage): Promise<PendingCard> {
 }
 
 // ── Bot factory ───────────────────────────────────────────────────────────────
-export function createBot(): Telegraf {
-  if (!BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN is not set");
-  const bot = new Telegraf(BOT_TOKEN);
+export function createBot(token?: string): Telegraf {
+  const t = token || BOT_TOKEN;
+  if (!t) throw new Error("TELEGRAM_BOT_TOKEN is not set");
+  const bot = new Telegraf(t);
 
   // /start
   bot.start(async (ctx) => {
@@ -634,12 +635,27 @@ export function createBot(): Telegraf {
   return bot;
 }
 
+let runningBot: Telegraf | null = null;
+
 export async function startBot(): Promise<void> {
   await ensureUploadsDir();
-  const bot = createBot();
+  runningBot = createBot();
   logger.info("Starting Telegram bot...");
-  bot.launch();
+  runningBot.launch();
   logger.info("Telegram bot launched (long polling)");
-  process.once("SIGINT", () => bot.stop("SIGINT"));
-  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+  process.once("SIGINT", () => runningBot?.stop("SIGINT"));
+  process.once("SIGTERM", () => runningBot?.stop("SIGTERM"));
+}
+
+export async function startBotWithToken(token: string): Promise<void> {
+  await ensureUploadsDir();
+  // Stop current running bot if any
+  if (runningBot) {
+    try { runningBot.stop("restart"); } catch {}
+    runningBot = null;
+  }
+  runningBot = createBot(token);
+  logger.info("Starting Telegram bot with new token...");
+  runningBot.launch();
+  logger.info("Telegram bot launched");
 }
