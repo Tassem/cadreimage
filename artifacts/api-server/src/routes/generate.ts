@@ -213,7 +213,10 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     overlayImagePath = await downloadUrlToFile(String(rawBody.overlayImageUrl), "overlay");
   }
   if (!overlayImagePath && templateOverrides.overlayUrl) {
-    overlayImagePath = await downloadUrlToFile(templateOverrides.overlayUrl, "overlay");
+    const overlayFullUrl = templateOverrides.overlayUrl.startsWith("/api/")
+      ? `http://localhost:8080${templateOverrides.overlayUrl}`
+      : templateOverrides.overlayUrl;
+    overlayImagePath = await downloadUrlToFile(overlayFullUrl, "overlay");
   }
 
   // Logo options: per-request overrides template defaults

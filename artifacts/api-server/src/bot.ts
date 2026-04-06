@@ -146,6 +146,7 @@ interface PendingCard {
   canvasLayout?: Record<string, { x: number; y: number; w: number }> | null;
   designName?: string;
   logoUrl?: string | null;
+  overlayUrl?: string | null;
 }
 
 interface Session {
@@ -248,6 +249,15 @@ async function doGenerate(
       }
     }
 
+    // Resolve overlay: URL from API template (possibly relative /api/uploads/…)
+    let overlayImagePath: string | null = null;
+    if (card.overlayUrl) {
+      const overlayFullUrl = card.overlayUrl.startsWith("/")
+        ? `http://localhost:8080${card.overlayUrl}`
+        : card.overlayUrl;
+      overlayImagePath = await downloadUrlToFile(overlayFullUrl, "overlay");
+    }
+
     // For API templates the templateId may be a numeric string; use "classic-blue" as base
     // All colors are passed explicitly via bannerColor/textColor overrides
     const resolvedId = isNaN(Number(card.templateId)) ? card.templateId : "classic-blue";
@@ -278,6 +288,7 @@ async function doGenerate(
       watermarkText:      card.watermarkText ?? null,
       watermarkOpacity:   card.watermarkOpacity,
       canvasLayout:       card.canvasLayout ?? null,
+      overlayImagePath,
     });
 
     const imageUrl = `/api/uploads/${fileName}`;
@@ -385,6 +396,8 @@ async function buildPendingCard(parsed: ParsedMessage): Promise<PendingCard> {
       watermarkOpacity:  t.watermarkOpacity ? Number(t.watermarkOpacity) : undefined,
       // canvas free-positioning layout
       canvasLayout:      t.canvasLayout ? (() => { try { return JSON.parse(t.canvasLayout!); } catch { return null; } })() : null,
+      // custom overlay frame URL
+      overlayUrl:        t.overlayUrl ?? null,
     };
   }
 
