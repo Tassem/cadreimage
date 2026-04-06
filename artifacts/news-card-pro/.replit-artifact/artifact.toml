@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/pro/"
+title = "NewsCard Pro Dashboard"
+version = "1.0.0"
+id = "artifacts/news-card-pro"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/pro/" ]
+localPort = 19846
+
+[services.development]
+run = "pnpm --filter @workspace/news-card-pro run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/news-card-pro", "run", "build" ]
+publicDir = "artifacts/news-card-pro/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19846"
+BASE_PATH = "/pro/"
