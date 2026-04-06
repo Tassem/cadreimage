@@ -143,6 +143,7 @@ interface PendingCard {
   labelAlign?: "right" | "center" | "left";
   watermarkText?: string | null;
   watermarkOpacity?: number;
+  canvasLayout?: Record<string, { x: number; y: number; w: number }> | null;
   designName?: string;
   logoUrl?: string | null;
 }
@@ -276,6 +277,7 @@ async function doGenerate(
       labelAlign:         card.labelAlign,
       watermarkText:      card.watermarkText ?? null,
       watermarkOpacity:   card.watermarkOpacity,
+      canvasLayout:       card.canvasLayout ?? null,
     });
 
     const imageUrl = `/api/uploads/${fileName}`;
@@ -381,6 +383,8 @@ async function buildPendingCard(parsed: ParsedMessage): Promise<PendingCard> {
       // watermark (new)
       watermarkText:     t.watermarkText ?? null,
       watermarkOpacity:  t.watermarkOpacity ? Number(t.watermarkOpacity) : undefined,
+      // canvas free-positioning layout
+      canvasLayout:      t.canvasLayout ? (() => { try { return JSON.parse(t.canvasLayout!); } catch { return null; } })() : null,
     };
   }
 
@@ -411,6 +415,7 @@ async function buildPendingCard(parsed: ParsedMessage): Promise<PendingCard> {
     labelAlign:        toAlign(s?.labelAlign),
     watermarkText:     s?.watermarkText ? String(s.watermarkText) : null,
     watermarkOpacity:  num(s?.watermarkOpacity),
+    canvasLayout:      s?.canvasLayout ? (typeof s.canvasLayout === "object" ? s.canvasLayout as any : null) : null,
   };
 }
 

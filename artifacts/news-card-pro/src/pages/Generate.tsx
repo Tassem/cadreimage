@@ -103,6 +103,9 @@ interface SavedDesign {
     label: string;
     // logo image (base64) — saved so it reloads with the design
     logoImage: string | null;
+    // Canvas free-positioning
+    canvasMode: boolean;
+    canvasLayout: CanvasLayout;
   };
 }
 
@@ -136,6 +139,7 @@ interface ApiTemplate {
   showSubtitle?: boolean | null;
   showLabel?: boolean | null;
   useLogoText?: boolean | null;
+  canvasLayout?: CanvasLayout | null;
 }
 
 function loadSaved() {
@@ -425,6 +429,7 @@ export default function Generate() {
       watermarkText: watermarkText || null,
       watermarkOpacity: String(watermarkOpacity),
       isPublic: false,
+      canvasLayout: canvasMode ? canvasLayout : null,
     };
     try {
       let r: Response;
@@ -447,7 +452,7 @@ export default function Generate() {
         setApiTplName(""); setApiTplSlug(""); setEditingTplId(null);
       }
     } catch {} finally { setApiTplSaving(false); }
-  }, [apiTplName, apiTplSlug, aspectRatio, selectedTemplateId, customBannerColor, customTextColor, customPhotoHeight, font, fontSize, fontWeight, textShadow, subtitle, label, logoText, logoPos, logoInvert, showSubtitle, showLabel, useLogoText, headlineAlign, subtitleAlign, labelAlign, watermarkText, watermarkOpacity, editingTplId, fetchApiTemplates]);
+  }, [apiTplName, apiTplSlug, aspectRatio, selectedTemplateId, customBannerColor, customTextColor, customPhotoHeight, font, fontSize, fontWeight, textShadow, subtitle, label, logoText, logoPos, logoInvert, showSubtitle, showLabel, useLogoText, headlineAlign, subtitleAlign, labelAlign, watermarkText, watermarkOpacity, editingTplId, fetchApiTemplates, canvasMode, canvasLayout]);
 
   const handleDeleteApiTemplate = useCallback(async (id: number) => {
     if (!confirm("حذف هذا القالب؟")) return;
@@ -584,6 +589,9 @@ export default function Generate() {
       headline, subtitle, label,
       logoImage: logoImage ?? null,
       logoPhotoFilename: (!useLogoText && logoServerFilename) ? logoServerFilename : null,
+      // Canvas free-positioning
+      canvasMode,
+      canvasLayout,
     };
     const design: SavedDesign = { id: Date.now().toString(), name, createdAt: Date.now(), settings };
     setSavedDesigns(prev => [design, ...prev.filter(d => d.name !== name)]);
@@ -597,7 +605,7 @@ export default function Generate() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ name, settings: serverSettings }),
     }).catch(() => {});
-  }, [saveNameInput, selectedTemplateId, aspectRatio, font, fontSize, fontWeight, textShadow, logoPos, logoInvert, useLogoText, logoText, showSubtitle, showLabel, imgPositionX, imgPositionY, customBannerColor, customTextColor, customPhotoHeight, headline, subtitle, label, logoImage, logoServerFilename]);
+  }, [saveNameInput, selectedTemplateId, aspectRatio, font, fontSize, fontWeight, textShadow, logoPos, logoInvert, useLogoText, logoText, showSubtitle, showLabel, imgPositionX, imgPositionY, customBannerColor, customTextColor, customPhotoHeight, headline, subtitle, label, logoImage, logoServerFilename, canvasMode, canvasLayout]);
 
   const handleLoadDesign = useCallback((d: SavedDesign) => {
     const s = d.settings;
@@ -613,6 +621,11 @@ export default function Generate() {
     if (s.headline) setHeadline(s.headline);
     if (s.subtitle !== undefined) setSubtitle(s.subtitle);
     if (s.label !== undefined) setLabel(s.label);
+    // Restore canvas free-positioning
+    if (s.canvasMode !== undefined) setCanvasMode(s.canvasMode);
+    if (s.canvasLayout) setCanvasLayout(s.canvasLayout);
+    else setCanvasLayout(CANVAS_DEFAULT);
+    setSelElem(null);
     // Restore logo image if saved
     if (s.logoImage) {
       setLogoImage(s.logoImage);
@@ -1071,7 +1084,7 @@ export default function Generate() {
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                             <span style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0" }}>{t.name}</span>
                             <div style={{ display: "flex", gap: "4px" }}>
-                              <button onClick={() => { setEditingTplId(t.id); setApiTplName(t.name); setApiTplSlug(t.slug ?? ""); setShowApiTemplateSave(true); }}
+                              <button onClick={() => { setEditingTplId(t.id); setApiTplName(t.name); setApiTplSlug(t.slug ?? ""); setShowApiTemplateSave(true); if (t.canvasLayout) { setCanvasLayout(t.canvasLayout); setCanvasMode(true); } else { setCanvasMode(false); setCanvasLayout(CANVAS_DEFAULT); } }}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #1e4080", borderRadius: "6px", cursor: "pointer" }}>تعديل</button>
                               <button onClick={() => handleDeleteApiTemplate(t.id)}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "6px", cursor: "pointer" }}>حذف</button>

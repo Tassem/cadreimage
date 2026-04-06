@@ -32,6 +32,7 @@ export const templatesTable = pgTable("templates", {
   labelAlign: text("label_align").notNull().default("right"),
   watermarkText: text("watermark_text"),
   watermarkOpacity: text("watermark_opacity").notNull().default("0.18"),
+  canvasLayout: text("canvas_layout"),   // JSON string of {headline,subtitle,label,logo} positions
   isPublic: boolean("is_public").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

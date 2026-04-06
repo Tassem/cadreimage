@@ -97,6 +97,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     labelAlign?: "right" | "center" | "left";
     watermarkText?: string | null;
     watermarkOpacity?: number;
+    canvasLayout?: Record<string, { x: number; y: number; w: number }> | null;
   };
   let templateOverrides: TemplateOverrides = {};
 
@@ -130,6 +131,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
       labelAlign:     toAlign(t.labelAlign),
       watermarkText:  t.watermarkText  ?? null,
       watermarkOpacity: t.watermarkOpacity ? Number(t.watermarkOpacity) : undefined,
+      canvasLayout: t.canvasLayout ? (() => { try { return JSON.parse(t.canvasLayout!); } catch { return null; } })() : null,
     };
   }
 
@@ -286,7 +288,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     labelAlign,
     watermarkText,
     watermarkOpacity,
-    canvasLayout: (rawBody as any).canvasLayout ?? null,
+    canvasLayout: (rawBody as any).canvasLayout ?? templateOverrides.canvasLayout ?? null,
   });
 
   const imageUrl = `/api/uploads/${fileName}`;

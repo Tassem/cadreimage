@@ -61,6 +61,7 @@ router.post("/templates", requireAuth, async (req: AuthRequest, res): Promise<vo
     labelAlign: d.labelAlign ?? "right",
     watermarkText: d.watermarkText ?? null,
     watermarkOpacity: d.watermarkOpacity ?? "0.18",
+    canvasLayout: (d as any).canvasLayout ? JSON.stringify((d as any).canvasLayout) : null,
     isPublic: d.isPublic ?? false,
   }).returning();
 
@@ -134,6 +135,7 @@ router.put("/templates/:id", requireAuth, async (req: AuthRequest, res): Promise
       ...(d.labelAlign !== undefined && { labelAlign: d.labelAlign }),
       ...(d.watermarkText !== undefined && { watermarkText: d.watermarkText }),
       ...(d.watermarkOpacity !== undefined && { watermarkOpacity: d.watermarkOpacity }),
+      ...((d as any).canvasLayout !== undefined && { canvasLayout: (d as any).canvasLayout ? JSON.stringify((d as any).canvasLayout) : null }),
       ...(d.isPublic !== undefined && { isPublic: d.isPublic }),
     })
     .where(and(
