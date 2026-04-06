@@ -1115,7 +1115,7 @@ export default function Generate() {
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                             <span style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0" }}>{t.name}</span>
                             <div style={{ display: "flex", gap: "4px" }}>
-                              <button onClick={() => { setEditingTplId(t.id); setApiTplName(t.name); setApiTplSlug(t.slug ?? ""); setShowApiTemplateSave(true); if (t.canvasLayout) { setCanvasLayout({ ...CANVAS_DEFAULT, ...t.canvasLayout }); setCanvasMode(true); } else { setCanvasMode(false); setCanvasLayout(CANVAS_DEFAULT); } if (t.overlayUrl) { const fn = t.overlayUrl.split("/").pop() ?? ""; setOverlayServerFilename(fn); setOverlayImage(null); setOverlayFileName("(محفوظ على السيرفر)"); } else { setOverlayImage(null); setOverlayFileName(""); setOverlayServerFilename(""); } }}
+                              <button onClick={() => { setEditingTplId(t.id); setApiTplName(t.name); setApiTplSlug(t.slug ?? ""); setShowApiTemplateSave(true); if (t.canvasLayout) { setCanvasLayout({ ...CANVAS_DEFAULT, ...t.canvasLayout }); setCanvasMode(true); } else { setCanvasMode(false); setCanvasLayout(CANVAS_DEFAULT); } if (t.overlayUrl) { const fn = t.overlayUrl.split("/").pop() ?? ""; setOverlayServerFilename(fn); setOverlayImage(t.overlayUrl); setOverlayFileName("(محفوظ على السيرفر)"); } else { setOverlayImage(null); setOverlayFileName(""); setOverlayServerFilename(""); } }}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #1e4080", borderRadius: "6px", cursor: "pointer" }}>تعديل</button>
                               <button onClick={() => handleDeleteApiTemplate(t.id)}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "6px", cursor: "pointer" }}>حذف</button>
@@ -1147,6 +1147,8 @@ export default function Generate() {
                             <span style={{ marginLeft: "8px" }}>📸 {t.photoHeight}%</span>
                             {t.subtitle && <span style={{ marginLeft: "8px" }}>💬 {t.subtitle.slice(0, 20)}</span>}
                             {t.logoText  && <span style={{ marginLeft: "8px" }}>🏷️ {t.logoText}</span>}
+                            {t.overlayUrl && <span style={{ marginLeft: "8px", color: "#a855f7", fontWeight: 600 }}>🖼️ إطار مخصص ✓</span>}
+                            {t.logoUrl   && !t.logoText && <span style={{ marginLeft: "8px", color: "#60a5fa" }}>🏷️ شعار محفوظ ✓</span>}
                           </div>
 
                           {/* n8n usage hint */}

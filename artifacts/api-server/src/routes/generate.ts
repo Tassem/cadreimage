@@ -210,7 +210,11 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
   const overlayFilename = safeFilename(rawBody.overlayPhotoFilename);
   let overlayImagePath: string | null = overlayFilename ? `${path.resolve("uploads")}/${overlayFilename}` : null;
   if (!overlayImagePath && rawBody.overlayImageUrl) {
-    overlayImagePath = await downloadUrlToFile(String(rawBody.overlayImageUrl), "overlay");
+    const rawOverlayUrl = String(rawBody.overlayImageUrl);
+    const overlayFullUrl = rawOverlayUrl.startsWith("/api/")
+      ? `http://localhost:8080${rawOverlayUrl}`
+      : rawOverlayUrl;
+    overlayImagePath = await downloadUrlToFile(overlayFullUrl, "overlay");
   }
   if (!overlayImagePath && templateOverrides.overlayUrl) {
     const overlayFullUrl = templateOverrides.overlayUrl.startsWith("/api/")
