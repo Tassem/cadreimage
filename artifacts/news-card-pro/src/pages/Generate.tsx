@@ -315,6 +315,7 @@ export default function Generate() {
       subtitle: showSubtitle && subtitle ? subtitle : null,
       label: showLabel && label ? label : null,
       logoText: useLogoText && logoText ? logoText : null,
+      logoUrl: !useLogoText && logoServerFilename ? `/api/uploads/${logoServerFilename}` : null,
       logoPos,
       logoInvert,
       textShadow,

@@ -87,6 +87,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     photoHeight?: number;
     subtitle?: string | null;
     label?: string | null;
+    logoUrl?: string | null;
     logoText?: string | null;
     logoPos?: string;
     logoInvert?: boolean;
@@ -109,6 +110,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
       photoHeight: t.photoHeight ?? undefined,
       subtitle:    t.subtitle    ?? null,
       label:       t.label       ?? null,
+      logoUrl:     t.logoUrl     ?? null,
       logoText:    t.logoText    ?? null,
       logoPos:     t.logoPos     ?? "top-right",
       logoInvert:  t.logoInvert  ?? false,
@@ -217,9 +219,15 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
   const subtitle = body.subtitle !== undefined ? body.subtitle : (templateOverrides.subtitle ?? null);
   const label    = body.label    !== undefined ? body.label    : (templateOverrides.label    ?? null);
 
-  // Logo image: if template has logoUrl and no per-request logo, download template's logoUrl
-  if (!logoImagePath && !logoText && templateOverrides.logoText == null) {
-    // no-op: keep null
+  // Logo image: if template has logoUrl and no per-request logo was provided, download it
+  if (!logoImagePath && !logoText && !templateOverrides.logoText && templateOverrides.logoUrl) {
+    const downloaded = await downloadUrlToFile(
+      templateOverrides.logoUrl.startsWith("/api/")
+        ? `http://localhost:8080${templateOverrides.logoUrl}`
+        : templateOverrides.logoUrl,
+      "logo_tpl"
+    );
+    if (downloaded) logoImagePath = downloaded;
   }
 
   // Generate image
