@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, plansTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { invalidatePlanCache, getPlanLimits, getUserUsage } from "../middlewares/planGuard";
 
 const router: IRouter = Router();
