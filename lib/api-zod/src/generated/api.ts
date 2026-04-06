@@ -109,6 +109,7 @@ export const CreateTemplateBody = zod.object({
   label: zod.string().nullish(),
   logoText: zod.string().nullish(),
   logoPos: zod.string().optional(),
+  canvasLayout: zod.record(zod.any()).nullish(),
   logoInvert: zod.boolean().optional(),
   textShadow: zod.boolean().optional(),
   headlineAlign: zod.string().optional(),
@@ -197,6 +198,7 @@ export const UpdateTemplateBody = zod.object({
   watermarkText: zod.string().nullish(),
   watermarkOpacity: zod.string().optional(),
   isPublic: zod.boolean().optional(),
+  canvasLayout: zod.record(zod.any()).nullish(),
 });
 
 export const UpdateTemplateResponse = zod.object({
