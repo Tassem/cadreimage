@@ -7,6 +7,15 @@ import { checkTemplateLimit } from "../middlewares/planGuard";
 
 const router: IRouter = Router();
 
+function parseTemplate(t: Record<string, unknown>) {
+  return {
+    ...t,
+    canvasLayout: t.canvasLayout
+      ? (() => { try { return typeof t.canvasLayout === "string" ? JSON.parse(t.canvasLayout) : t.canvasLayout; } catch { return null; } })()
+      : null,
+  };
+}
+
 router.get("/templates", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   const templates = await db
     .select()
@@ -14,7 +23,7 @@ router.get("/templates", requireAuth, async (req: AuthRequest, res): Promise<voi
     .where(eq(templatesTable.userId, req.userId!))
     .orderBy(templatesTable.createdAt);
 
-  res.json(templates);
+  res.json(templates.map(parseTemplate));
 });
 
 router.post("/templates", requireAuth, async (req: AuthRequest, res): Promise<void> => {
@@ -88,7 +97,7 @@ router.get("/templates/:id", requireAuth, async (req: AuthRequest, res): Promise
     return;
   }
 
-  res.json(template);
+  res.json(parseTemplate(template as Record<string, unknown>));
 });
 
 router.put("/templates/:id", requireAuth, async (req: AuthRequest, res): Promise<void> => {
@@ -149,7 +158,7 @@ router.put("/templates/:id", requireAuth, async (req: AuthRequest, res): Promise
     return;
   }
 
-  res.json(template);
+  res.json(parseTemplate(template as Record<string, unknown>));
 });
 
 router.delete("/templates/:id", requireAuth, async (req: AuthRequest, res): Promise<void> => {

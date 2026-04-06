@@ -405,6 +405,68 @@ export default function Generate() {
 
   useEffect(() => { fetchApiTemplates(); }, [fetchApiTemplates]);
 
+  // Load ALL template settings into UI when user clicks "تعديل"
+  const handleEditApiTemplate = useCallback((t: ApiTemplate) => {
+    // Form state
+    setEditingTplId(t.id);
+    setApiTplName(t.name);
+    setApiTplSlug(t.slug ?? "");
+    setShowApiTemplateSave(true);
+    // Typography
+    if (t.fontSize)    setFontSize(t.fontSize);
+    if (t.fontWeight)  setFontWeight(t.fontWeight);
+    if (t.font)        setFont(t.font);
+    if (typeof t.textShadow === "boolean") setTextShadow(t.textShadow);
+    // Layout / aspect
+    if (t.aspectRatio && Object.keys(ASPECT_RATIOS).includes(t.aspectRatio))
+      setAspectRatio(t.aspectRatio as AspectRatio);
+    // Colors
+    if (t.bannerColor) { setCustomBannerColor(t.bannerColor); setSelectedTemplateId("custom"); }
+    if (t.textColor)   setCustomTextColor(t.textColor);
+    // Photo
+    if (t.photoHeight) setCustomPhotoHeight(t.photoHeight);
+    // Logo
+    if (t.logoPos && ["top-right","top-left","bottom-right","bottom-left"].includes(t.logoPos))
+      setLogoPos(t.logoPos as LogoPos);
+    if (typeof t.logoInvert === "boolean") setLogoInvert(t.logoInvert);
+    if (t.logoText != null) { setLogoText(t.logoText); setUseLogoText(true); }
+    else                    { setUseLogoText(false); }
+    if (t.logoUrl && !t.logoText) {
+      const fn = t.logoUrl.split("/").pop() ?? "";
+      setLogoServerFilename(fn);
+      setLogoImage(null);
+      setLogoFileName("(محفوظ على السيرفر)");
+    }
+    // Text alignments
+    if (t.headlineAlign && ["right","center","left"].includes(t.headlineAlign))
+      setHeadlineAlign(t.headlineAlign as "right"|"center"|"left");
+    if (t.subtitleAlign && ["right","center","left"].includes(t.subtitleAlign))
+      setSubtitleAlign(t.subtitleAlign as "right"|"center"|"left");
+    if (t.labelAlign && ["right","center","left"].includes(t.labelAlign))
+      setLabelAlign(t.labelAlign as "right"|"center"|"left");
+    // Watermark
+    if (t.watermarkText != null)    setWatermarkText(t.watermarkText);
+    if (t.watermarkOpacity != null) setWatermarkOpacity(Number(t.watermarkOpacity));
+    // Subtitle / label
+    if (t.subtitle != null) { setSubtitle(t.subtitle); setShowSubtitle(true); }
+    if (t.label    != null) { setLabel(t.label);       setShowLabel(true); }
+    // Canvas layout
+    if (t.canvasLayout) { setCanvasLayout({ ...CANVAS_DEFAULT, ...t.canvasLayout }); setCanvasMode(true); }
+    else                { setCanvasMode(false); setCanvasLayout(CANVAS_DEFAULT); }
+    setSelElem(null);
+    // Overlay
+    if (t.overlayUrl) {
+      const fn = t.overlayUrl.split("/").pop() ?? "";
+      setOverlayServerFilename(fn);
+      setOverlayImage(t.overlayUrl);
+      setOverlayFileName("(محفوظ على السيرفر)");
+    } else {
+      setOverlayImage(null);
+      setOverlayFileName("");
+      setOverlayServerFilename("");
+    }
+  }, []);
+
   const handleSaveApiTemplate = useCallback(async () => {
     const name = apiTplName.trim(); if (!name) return;
     setApiTplSaving(true);
@@ -1117,7 +1179,7 @@ export default function Generate() {
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                             <span style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0" }}>{t.name}</span>
                             <div style={{ display: "flex", gap: "4px" }}>
-                              <button onClick={() => { setEditingTplId(t.id); setApiTplName(t.name); setApiTplSlug(t.slug ?? ""); setShowApiTemplateSave(true); if (t.canvasLayout) { setCanvasLayout({ ...CANVAS_DEFAULT, ...t.canvasLayout }); setCanvasMode(true); } else { setCanvasMode(false); setCanvasLayout(CANVAS_DEFAULT); } if (t.overlayUrl) { const fn = t.overlayUrl.split("/").pop() ?? ""; setOverlayServerFilename(fn); setOverlayImage(t.overlayUrl); setOverlayFileName("(محفوظ على السيرفر)"); } else { setOverlayImage(null); setOverlayFileName(""); setOverlayServerFilename(""); } }}
+                              <button onClick={() => handleEditApiTemplate(t)}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #1e4080", borderRadius: "6px", cursor: "pointer" }}>تعديل</button>
                               <button onClick={() => handleDeleteApiTemplate(t.id)}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "6px", cursor: "pointer" }}>حذف</button>
