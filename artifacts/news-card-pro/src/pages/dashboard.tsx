@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "wouter";
 import { useGetStats, getGetStatsQueryKey, useListHistory, getListHistoryQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Image as ImageIcon, LayoutTemplate, Zap, ArrowRight, Download } from "lucide-react";
