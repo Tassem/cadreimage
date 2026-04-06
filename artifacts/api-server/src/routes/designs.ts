@@ -9,11 +9,16 @@ const router = Router();
 // GET /api/designs — list user's saved designs
 router.get("/designs", requireAuth, async (req, res) => {
   const userId = (req as any).user.id;
-  const designs = await db
+  const rows = await db
     .select()
     .from(userSavedDesignsTable)
     .where(eq(userSavedDesignsTable.userId, userId))
     .orderBy(userSavedDesignsTable.createdAt);
+
+  const designs = rows.map(r => ({
+    ...r,
+    settings: (() => { try { return JSON.parse(r.designData); } catch { return {}; } })(),
+  }));
   return res.json({ designs });
 });
 
@@ -23,6 +28,8 @@ router.post("/designs", requireAuth, async (req, res) => {
   const planSlug = (req as any).user.plan ?? "free";
   const { name, settings } = req.body as { name: string; settings: unknown };
   if (!name || !settings) return res.status(400).json({ error: "name and settings required" });
+
+  const designData = JSON.stringify(settings);
 
   // Upsert by name — if name exists for this user, update it (no limit check for updates)
   const [existing] = await db
@@ -34,22 +41,21 @@ router.post("/designs", requireAuth, async (req, res) => {
   if (existing) {
     [design] = await db
       .update(userSavedDesignsTable)
-      .set({ settings })
+      .set({ designData, updatedAt: new Date() })
       .where(eq(userSavedDesignsTable.id, existing.id))
       .returning();
   } else {
-    // Check limit only for new designs
     const { allowed, used, limit } = await checkDesignLimit(userId, planSlug);
     if (!allowed) {
       return res.status(429).json({ error: `وصلت إلى الحد الأقصى للتصاميم المحفوظة (${limit}). يرجى ترقية باقتك.`, limit, used });
     }
     [design] = await db
       .insert(userSavedDesignsTable)
-      .values({ userId, name, settings })
+      .values({ userId, name, designData })
       .returning();
   }
 
-  return res.json({ design });
+  return res.json({ design: { ...design, settings } });
 });
 
 // DELETE /api/designs/:id

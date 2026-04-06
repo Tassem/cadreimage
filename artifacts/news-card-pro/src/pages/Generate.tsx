@@ -629,9 +629,9 @@ export default function Generate() {
     if (s.headline) setHeadline(s.headline);
     if (s.subtitle !== undefined) setSubtitle(s.subtitle);
     if (s.label !== undefined) setLabel(s.label);
-    // Restore canvas free-positioning
+    // Restore canvas free-positioning — always merge with CANVAS_DEFAULT to ensure all keys exist
     if (s.canvasMode !== undefined) setCanvasMode(s.canvasMode);
-    if (s.canvasLayout) setCanvasLayout(s.canvasLayout);
+    if (s.canvasLayout) setCanvasLayout({ ...CANVAS_DEFAULT, ...s.canvasLayout });
     else setCanvasLayout(CANVAS_DEFAULT);
     setSelElem(null);
     // Restore logo image if saved
@@ -1115,7 +1115,7 @@ export default function Generate() {
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                             <span style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0" }}>{t.name}</span>
                             <div style={{ display: "flex", gap: "4px" }}>
-                              <button onClick={() => { setEditingTplId(t.id); setApiTplName(t.name); setApiTplSlug(t.slug ?? ""); setShowApiTemplateSave(true); if (t.canvasLayout) { setCanvasLayout(t.canvasLayout); setCanvasMode(true); } else { setCanvasMode(false); setCanvasLayout(CANVAS_DEFAULT); } if (t.overlayUrl) { const fn = t.overlayUrl.split("/").pop() ?? ""; setOverlayServerFilename(fn); setOverlayImage(null); setOverlayFileName("(محفوظ على السيرفر)"); } else { setOverlayImage(null); setOverlayFileName(""); setOverlayServerFilename(""); } }}
+                              <button onClick={() => { setEditingTplId(t.id); setApiTplName(t.name); setApiTplSlug(t.slug ?? ""); setShowApiTemplateSave(true); if (t.canvasLayout) { setCanvasLayout({ ...CANVAS_DEFAULT, ...t.canvasLayout }); setCanvasMode(true); } else { setCanvasMode(false); setCanvasLayout(CANVAS_DEFAULT); } if (t.overlayUrl) { const fn = t.overlayUrl.split("/").pop() ?? ""; setOverlayServerFilename(fn); setOverlayImage(null); setOverlayFileName("(محفوظ على السيرفر)"); } else { setOverlayImage(null); setOverlayFileName(""); setOverlayServerFilename(""); } }}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #1e4080", borderRadius: "6px", cursor: "pointer" }}>تعديل</button>
                               <button onClick={() => handleDeleteApiTemplate(t.id)}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "6px", cursor: "pointer" }}>حذف</button>
@@ -1743,8 +1743,9 @@ export default function Generate() {
                         </div>
                       ),
                     },
-                  ] as { key: ElemKey; rect: { x: number; y: number; w: number }; label: string; content: React.ReactNode }[]
-                ).map(({ key, rect, label: elemLabel, content }) => {
+                  ] as { key: ElemKey; rect: { x: number; y: number; w: number } | undefined; label: string; content: React.ReactNode }[]
+                ).filter(item => !!item.rect).map(({ key, rect, label: elemLabel, content }) => {
+                  const rect2 = rect!;
                   const sel = selElem === key;
                   return (
                     <div
@@ -1752,7 +1753,7 @@ export default function Generate() {
                       onMouseDown={startDrag(key)}
                       style={{
                         position: "absolute",
-                        left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.w}%`,
+                        left: `${rect2.x}%`, top: `${rect2.y}%`, width: `${rect2.w}%`,
                         cursor: "move", userSelect: "none",
                         outline: sel ? "2px solid #6366f1" : "1px dashed rgba(255,255,255,0.25)",
                         borderRadius: "4px",
