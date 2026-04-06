@@ -244,8 +244,8 @@ export default function Generate() {
   const [imgPositionY, setImgPositionY] = useState<number>(s.imgPositionY ?? 50);
 
   // ── Canvas free-positioning state ──────────────────────────────────────────
-  const [canvasMode, setCanvasMode]     = useState(false);
-  const [canvasLayout, setCanvasLayout] = useState<CanvasLayout>(CANVAS_DEFAULT);
+  const [canvasMode, setCanvasMode]     = useState<boolean>(s.canvasMode ?? false);
+  const [canvasLayout, setCanvasLayout] = useState<CanvasLayout>(s.canvasLayout ? { ...CANVAS_DEFAULT, ...s.canvasLayout } : CANVAS_DEFAULT);
   const [selElem, setSelElem]           = useState<ElemKey | null>(null);
 
   // Saved designs (local)
@@ -356,11 +356,13 @@ export default function Generate() {
       customBannerColor, customTextColor, customPhotoHeight,
       headlineAlign, subtitleAlign, labelAlign,
       watermarkText, watermarkOpacity,
+      canvasMode, canvasLayout,
     }));
   }, [headline, subtitle, label, showSubtitle, showLabel, selectedTemplateId, aspectRatio,
       font, fontSize, fontWeight, textShadow, logoPos, useLogoText, logoText, logoInvert,
       imgPositionX, imgPositionY, customBannerColor, customTextColor, customPhotoHeight,
-      headlineAlign, subtitleAlign, labelAlign, watermarkText, watermarkOpacity]);
+      headlineAlign, subtitleAlign, labelAlign, watermarkText, watermarkOpacity,
+      canvasMode, canvasLayout]);
 
   useEffect(() => {
     localStorage.setItem("ncg-pro-designs", JSON.stringify(savedDesigns));
