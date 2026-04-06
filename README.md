@@ -1,202 +1,369 @@
-# 📰 News Card Generator Pro
+# 🗞️ News Card Generator Pro
 
-منصة SaaS متكاملة لتوليد بطاقات الأخبار بالعربية بجودة احترافية. تجمع بين واجهة ويب تفاعلية، خادم API قوي، وبوت تيليغرام ذكي.
+منصة SaaS متكاملة لتوليد بطاقات الأخبار العربية بجودة احترافية — تجمع بين واجهة ويب تفاعلية، خادم API قوي، وبوت تيليغرام ذكي.
+
+> **Full-stack Arabic news card SaaS** with server-side Playwright/Chromium image generation, JWT auth, multi-plan system, Telegram bot, and a free-position canvas editor.
 
 ---
 
-## 🗂️ هيكل المشروع
+## 🧠 Overview
+
+News Card Generator Pro allows Arabic media outlets and journalists to instantly create professional news cards — branded image posts for social media — directly in the browser or via Telegram. It supports custom templates, logos, overlays, watermarks, and a free-position canvas layout system. Generated images are server-rendered at 1080px resolution using headless Chromium.
+
+---
+
+## ⚙️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend (Free Tool) | React 18 + Vite + TypeScript |
+| Frontend (Pro Dashboard) | React 18 + Vite + Wouter (SPA routing) |
+| Backend API | Express 5 + TypeScript |
+| Image Generation | Playwright / Chromium (headless) |
+| Database | PostgreSQL + Drizzle ORM |
+| Auth | JWT (jsonwebtoken) + bcrypt |
+| File Storage | Local filesystem (`uploads/`) |
+| Monorepo | pnpm workspaces |
+| Telegram Bot | Telegraf.js v4 |
+| Validation | Zod |
+
+---
+
+## 🏗️ Architecture
 
 ```
 workspace/
 ├── artifacts/
-│   ├── news-card-pro/        # الواجهة الأمامية (React + Vite)
-│   ├── api-server/           # الخادم الخلفي (Express 5)
-│   ├── news-card-generator/  # النسخة الأصلية المجانية
-│   └── mockup-sandbox/       # بيئة معاينة المكونات (Canvas)
-├── lib/
-│   └── db/                   # مخطط قاعدة البيانات (Drizzle ORM)
-└── README.md
+│   ├── news-card-generator/     # Free public tool (React+Vite) → served at /
+│   ├── news-card-pro/           # Pro dashboard (React+Vite)    → served at /pro/
+│   └── api-server/              # Express 5 REST API            → served at /api/
+│       ├── src/routes/          # Auth, templates, designs, generate, uploads, users
+│       ├── src/lib/
+│       │   └── imageGenerator.ts  # Core: HTML → Playwright → PNG
+│       ├── src/bot.ts           # Telegraf bot
+│       ├── src/middlewares/     # JWT auth, plan guards
+│       └── uploads/             # Persistent generated images
+└── lib/
+    ├── db/                      # Drizzle ORM schema (PostgreSQL)
+    └── api-zod/                 # Zod schemas for API request validation
+```
+
+### Services
+
+| Path | Service | Description |
+|------|---------|-------------|
+| `/` | news-card-generator | Free tool: basic card generation, no login |
+| `/pro/` | news-card-pro | SaaS dashboard: full feature set, JWT auth |
+| `/api/` | api-server | REST API: all backend logic, image gen, auth |
+
+---
+
+## 🔄 Data Flow
+
+### Card Generation (Pro Dashboard)
+
+```
+User fills form
+  → POST /api/generate (with text + server filenames for bg/logo/overlay)
+  → API downloads files from uploads/
+  → buildHtml() constructs self-contained HTML page
+      - Cairo font embedded as base64
+      - Images embedded as base64 data URLs
+      - Dual layout modes: Classic (banner) or Canvas (absolute positions)
+  → Playwright headless Chromium renders HTML at 1080×1080px (or other ratio)
+  → screenshot() captures full-page PNG
+  → File saved to uploads/ with UUID filename
+  → { url: "/api/uploads/<uuid>.png" } returned to client
+  → Client displays generated image for download
+```
+
+### Telegram Bot Flow
+
+```
+User sends text message in bot chat
+  → bot.ts parses headline / subtitle / label
+  → Loads user's saved API template from DB
+  → Downloads bg/logo/overlay from server (relative → absolute URL conversion)
+  → Calls generateCard() → PNG saved
+  → Sends image file back to Telegram chat
+```
+
+### Template Save / Load
+
+```
+Save:
+  User clicks "حفظ القالب"
+  → POST /api/templates with all settings
+  → canvasLayout object → JSON.stringify() → stored as TEXT in DB
+
+Load:
+  GET /api/templates
+  → parseTemplate() helper parses canvasLayout TEXT → JavaScript object
+  → Returned to frontend as proper object (never as raw string)
+
+Edit:
+  User clicks "تعديل" on saved template
+  → handleEditApiTemplate(t) applies ALL template fields to UI state
+  → fontSize, font, bannerColor, canvasLayout, overlayUrl, logoPos, etc.
 ```
 
 ---
 
-## 🚀 المكونات الرئيسية
+## 🚀 Features
 
-### 1. 🖥️ الواجهة الأمامية — `artifacts/news-card-pro`
+### Free Tool (`/`)
+- Generate news cards instantly without login
+- 20+ built-in color themes
+- Custom headline, subtitle, label
+- Logo upload (image or text)
+- Background image upload
+- Multiple aspect ratios: 1:1 / 4:5 / 16:9 / 9:16
+- Download as high-res PNG
 
-**التقنية:** React 18 + Vite + TypeScript + Tailwind CSS
+### Pro Dashboard (`/pro/`)
+- **JWT authentication** (login / register)
+- **Saved API Templates** — persist ALL settings: fonts, colors, canvas layout, logo, overlay
+- **Canvas Mode** — free-drag positioning of headline, subtitle, label, logo via % coordinates
+- **Full Background Mode** — photo covers 100% of card, text overlaid via canvas elements
+- **Overlay / Frame PNG** — transparent PNG overlaid on top of the entire card (brand frames)
+- **Watermark** — diagonal text watermark with adjustable opacity
+- **Saved Designs** — save design snapshots with preview URLs
+- **Telegram Bot** — connect bot token + chat ID, auto-send generated cards
+- **Plan system** — Free (3 templates), Pro (unlimited), Admin
+- **Admin Panel** — manage users, update plans, view template usage
 
-واجهة SaaS داكنة وعصرية تتيح للمستخدمين تصميم بطاقات الأخبار وتخصيصها بشكل كامل.
+### API Server (`/api/`)
 
-**الصفحات:**
-| الصفحة | الوصف |
-|--------|-------|
-| `/login` | تسجيل الدخول وإنشاء حساب جديد بـ JWT |
-| `/generate` | محرر البطاقات التفاعلي الكامل |
-| `/history` | سجل الصور المولّدة سابقاً |
-| `/settings` | إعدادات الحساب والبوت ومفاتيح API |
-
-**مميزات المحرر (`/generate`):**
-- **6 تبويبات:** المحتوى / القوالب / الشعار / النص / الخلفية / التصاميم المحفوظة
-- **معاينة حية** للبطاقة فور تغيير أي إعداد
-- **7 قوالب جاهزة:** classic-blue, breaking-red, dark-pro, green-clean, gold-premium, purple-news, slate-fade
-- **نسب أبعاد متعددة:** 1:1 / 4:5 / 16:9 / 9:16
-- **تخصيص كامل:** لون الشريط، لون النص، حجم الصورة، موضع الصورة، الخط، حجم الخط، وزن الخط، ظل النص
-- **رفع الشعار:** دعم صورة الشعار أو نص بديل، مع خيار عكس الألوان
-- **حفظ التصاميم:** حفظ إعدادات كاملة بالاسم وإعادة تحميلها لاحقاً
-- **مزامنة تلقائية** للتصاميم المحفوظة مع السيرفر عند تحميل الصفحة
-- **إرسال مباشر** للبطاقة إلى تيليغرام بضغطة واحدة
-
----
-
-### 2. ⚙️ الخادم الخلفي — `artifacts/api-server`
-
-**التقنية:** Node.js + Express 5 + TypeScript + Drizzle ORM + PostgreSQL
-
-**المسارات الرئيسية:**
-
-| المسار | الوصف |
-|--------|-------|
-| `POST /api/auth/register` | تسجيل مستخدم جديد |
-| `POST /api/auth/login` | تسجيل الدخول + إرجاع JWT |
-| `GET  /api/auth/me` | بيانات المستخدم الحالي |
-| `POST /api/generate` | توليد صورة بطاقة إخبارية (Playwright) |
-| `POST /api/photo/upload` | رفع صورة الخلفية أو الشعار |
-| `GET  /api/history` | سجل الصور المولّدة |
-| `GET  /api/designs` | قائمة التصاميم المحفوظة للمستخدم |
-| `POST /api/designs` | حفظ/تحديث تصميم (upsert بالاسم) |
-| `DELETE /api/designs/:id` | حذف تصميم |
-| `GET  /api/bot/status` | حالة اتصال بوت التيليغرام |
-| `POST /api/bot/connect` | ربط بوت بحساب المستخدم |
-| `GET  /api/uploads/:filename` | خدمة الملفات المرفوعة |
-
-**توليد الصور:**
-- يستخدم **Playwright + Chromium** لتحويل HTML إلى PNG بجودة عالية
-- يدعم الخطوط العربية (Cairo, Tajawal, Almarai, Noto Kufi Arabic, إلخ)
-- يولّد HTML ديناميكياً من إعدادات القالب والمحتوى
-- يدعم صور الخلفية وشعارات المؤسسات وتأثيرات التلاشي
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/login` | No | Returns JWT token |
+| POST | `/auth/register` | No | Create account |
+| GET | `/auth/me` | Yes | Current user info |
+| GET | `/templates` | Yes | List user's saved templates |
+| POST | `/templates` | Yes | Create template |
+| PUT | `/templates/:id` | Yes | Update template |
+| DELETE | `/templates/:id` | Yes | Delete template |
+| POST | `/generate` | Yes | Generate card image (Playwright) |
+| POST | `/uploads` | Yes | Upload file (bg/logo/overlay) |
+| GET | `/uploads/:file` | No | Serve uploaded file |
+| GET | `/designs` | Yes | List saved designs |
+| POST | `/designs` | Yes | Save design |
+| DELETE | `/designs/:id` | Yes | Delete design |
+| GET | `/users` | Admin | List all users |
+| PUT | `/users/:id/plan` | Admin | Update user plan |
 
 ---
 
-### 3. 🤖 بوت التيليغرام — `artifacts/api-server/src/bot.ts`
+## 📦 Installation
 
-**التقنية:** Telegraf v4
-
-بوت ذكي يتيح توليد البطاقات مباشرةً من تيليغرام بصيغة بسيطة.
-
-**طريقة الاستخدام:**
-```
-قالب : برشيد
-عنوان : تسرب مياه الصرف الصحي يؤرق سكان حي الراحة
-نسبة : 1:1
-تسمية : مراسلنا الميداني
-```
-ثم أرسل صورة الخلفية، أو `/skip` للتوليد بدون صورة.
-
-**المميزات:**
-- يبحث في التصاميم المحفوظة بالاسم (بغض النظر عن حالة الأحرف)
-- يستخدم جميع إعدادات التصميم: الألوان، الخطوط، الشعار، النسب
-- حد يومي 10 صور للخطة المجانية، غير محدود للـ Pro
-- يُرسل الصورة مباشرةً كصورة ذات دقة عالية
-- يدعم أسماء عربية وإنجليزية وأرقام للقوالب
-
-**الأوامر:**
-| الأمر | الوصف |
-|-------|-------|
-| `/start` | عرض رسالة الترحيب والتعليمات |
-| `/generate عنوان الخبر` | توليد سريع بالقالب الافتراضي |
-| `/skip` | توليد البطاقة المعلّقة بدون صورة |
-| `/cancel` | إلغاء العملية الحالية |
-| `/status` | عرض معلومات الحساب والحد اليومي |
-
----
-
-### 4. 🗄️ قاعدة البيانات — `lib/db`
-
-**التقنية:** PostgreSQL + Drizzle ORM + Zod
-
-**الجداول:**
-
-| الجدول | الوصف |
-|--------|-------|
-| `users` | المستخدمون (اسم، إيميل، كلمة سر مشفّرة bcrypt، الخطة، مفتاح API، عداد اليومي) |
-| `generated_images` | سجل كل صورة مُولَّدة (المستخدم، العنوان، URL، النسبة، الحجم) |
-| `user_saved_designs` | التصاميم المحفوظة (الاسم، JSON كامل للإعدادات) |
-
----
-
-### 5. 📰 النسخة الأصلية — `artifacts/news-card-generator`
-
-النسخة المجانية الأولى من المشروع، بدون مصادقة، تعمل مباشرةً في المتصفح.
-
----
-
-## 🛠️ التثبيت والتشغيل
-
-### المتطلبات
+### Prerequisites
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL
-- Chromium (أو Nix)
+- PostgreSQL database
+- Chromium (auto-installed by Playwright, or system Chromium)
 
-### الإعداد
+### 1. Clone
 
 ```bash
-# تثبيت الاعتماديات
+git clone https://github.com/Tassem/news-card-generator-pro.git
+cd news-card-generator-pro
+```
+
+### 2. Install dependencies
+
+```bash
 pnpm install
+```
 
-# إعداد متغيرات البيئة
-SESSION_SECRET=your-jwt-secret
-DATABASE_URL=postgresql://user:pass@host:5432/dbname
-TELEGRAM_BOT_TOKEN=your-bot-token
+### 3. Environment variables
 
-# رفع مخطط قاعدة البيانات
-cd lib/db && pnpm run push
+```bash
+cp .env.example .env
+# Edit .env with your values
+```
 
-# تشغيل الخادم
+### 4. Database setup
+
+```bash
+pnpm --filter @workspace/db run db:push
+```
+
+### 5. Start services
+
+```bash
+# API Server (port 8080 by default)
 pnpm --filter @workspace/api-server run dev
 
-# تشغيل الواجهة
+# Pro Dashboard
 pnpm --filter @workspace/news-card-pro run dev
+
+# Free Tool
+pnpm --filter @workspace/news-card-generator run dev
 ```
 
 ---
 
-## 🔐 المصادقة
+## 🔐 Environment Variables
 
-- JWT مع انتهاء صلاحية 7 أيام
-- كلمات السر مشفّرة بـ bcrypt (10 rounds)
-- مستخدمو التيليغرام يحصلون على حسابات تلقائية (`tg_{id}@bot.internal`)
-- مفاتيح API مولّدة تلقائياً لكل مستخدم (prefix: `ncg_`)
-
----
-
-## 📦 التقنيات المستخدمة
-
-| الطبقة | التقنية |
-|--------|---------|
-| Frontend | React 18, Vite, TypeScript, Tailwind CSS |
-| Backend | Node.js, Express 5, TypeScript |
-| قاعدة البيانات | PostgreSQL, Drizzle ORM |
-| توليد الصور | Playwright, Chromium |
-| البوت | Telegraf v4 |
-| المصادقة | JWT (jsonwebtoken), bcrypt |
-| رفع الملفات | Multer |
-| البناء | esbuild (via build.mjs) |
-| الخطوط العربية | Google Fonts (Cairo, Tajawal, Almarai...) |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | ✅ |
+| `SESSION_SECRET` | JWT signing secret (min 32 chars) | ✅ |
+| `PORT` | API server port (default: 8080) | ❌ |
 
 ---
 
-## 📋 الخطط المستقبلية
+## 📁 Project Structure
 
-- [ ] دعم CSV للتوليد المجمّع
-- [ ] تصدير متعدد الأحجام في آنٍ واحد
-- [ ] لوحة تحكم الإدارة
-- [ ] دعم قوالب مخصصة من HTML
-- [ ] تكامل مع WordPress و Blogger
+```
+artifacts/
+  api-server/
+    src/
+      routes/
+        auth.ts          # Login, register, /me
+        templates.ts     # CRUD + parseTemplate() for canvasLayout
+        designs.ts       # Saved design snapshots
+        generate.ts      # Image generation endpoint
+        uploads.ts       # File upload (Multer)
+        users.ts         # Admin user management
+      middlewares/
+        auth.ts          # JWT verification middleware
+        planGuard.ts     # Plan-based feature limits
+      lib/
+        imageGenerator.ts  # Core renderer: buildHtml() + generateCard()
+      bot.ts             # Telegraf bot (per-user bot tokens)
+      fonts/cairo.ttf    # Embedded Arabic font (base64 in generation)
+    uploads/             # Generated PNGs (UUID filenames)
+
+  news-card-pro/
+    src/
+      pages/
+        Generate.tsx     # Main card editor (~1900 lines)
+        Login.tsx        # JWT auth
+        Register.tsx
+        AdminPanel.tsx   # Admin user management
+        SavedDesigns.tsx # Design history
+      App.tsx            # Wouter routing (base: /pro/)
+
+  news-card-generator/
+    src/
+      App.tsx            # Free tool (simpler, no auth)
+
+lib/
+  db/
+    src/
+      schema/
+        users.ts         # users table
+        templates.ts     # templates table (canvasLayout as TEXT)
+        designs.ts       # user_saved_designs table
+      index.ts           # Drizzle client
+  api-zod/
+    src/generated/api.ts # Zod schemas for all API bodies
+```
 
 ---
 
-## 📄 الترخيص
+## 📊 How It Works
 
-MIT License — جميع الحقوق محفوظة
+### Image Generator (`imageGenerator.ts`)
+
+**`buildHtml(opts, w, h)`** constructs a complete self-contained HTML page:
+- Cairo font embedded as base64 `@font-face`
+- Background/logo/overlay images embedded as base64 data URLs
+- **Classic layout**: `.photo` div (top, `photoH`%) + `.banner` div (bottom, `bannerH`%) with text inside
+- **Canvas layout**: All elements positioned absolutely using `%` coordinates (z-index 11)
+- **Full Background**: `photoHeight = 100` → photo fills card, banner collapses to 0 height
+
+**`generateCard(options)`** renders with Playwright:
+- Persistent shared browser instance (one Chromium process, auto-restarts on crash)
+- Mutex-based page pool (max 1 concurrent render)
+- Full-page screenshot at exact card dimensions
+- Saved as UUID-named PNG to `uploads/`
+
+### Canvas Layout System
+
+Elements positioned using percentage-based coordinates:
+```typescript
+{
+  headline: { x: 4,  y: 63, w: 92 },  // % of card dimensions
+  subtitle: { x: 4,  y: 79, w: 92 },
+  label:    { x: 4,  y: 88, w: 42 },
+  logo:     { x: 74, y: 3,  w: 22 },
+}
+```
+
+In the HTML generator: `left: ${x/100 * cardWidth}px; top: ${y/100 * cardHeight}px; width: ${w/100 * cardWidth}px`
+
+### Template Serialization
+
+`canvasLayout` is stored as JSON **string** in PostgreSQL (TEXT column), because Drizzle ORM doesn't auto-parse JSON fields. The `parseTemplate()` helper in `routes/templates.ts` converts it back to an object on every GET response.
+
+---
+
+## 🤖 AI-Understandable Section
+
+### Critical State Variables (Generate.tsx)
+
+```typescript
+// Server filenames (returned from POST /api/uploads)
+bgServerFilename    // background image on server
+logoServerFilename  // logo image on server
+overlayServerFilename // overlay PNG on server
+
+// These are used in POST /api/generate, NOT the local blob URLs
+```
+
+### localStorage Schema
+
+```json
+{
+  "ncg-pro-settings": {
+    "selectedTemplateId": "classic-blue",
+    "aspectRatio": "1:1",
+    "font": "Cairo",
+    "fontSize": 26,
+    "fontWeight": 700,
+    "canvasMode": false,
+    "canvasLayout": { "headline": {...}, "subtitle": {...} },
+    "customPhotoHeight": 62,
+    "...": "all other UI settings"
+  }
+}
+```
+
+### Bug History (solved)
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| canvasLayout ignored on edit | Returned as JSON string from API | Added `parseTemplate()` in templates.ts |
+| Overlay lost on template edit | `setOverlayImage(null)` instead of template URL | `setOverlayImage(t.overlayUrl)` |
+| Settings reset on page reload | canvasMode/canvasLayout not in localStorage | Added to auto-persist useEffect |
+| "تعديل" only restored 2 fields | Handler didn't apply fontSize, font, etc. | Rebuilt `handleEditApiTemplate()` |
+
+---
+
+## 🔮 Future Improvements
+
+- [ ] Stripe payment integration for Pro plans
+- [ ] Multiple Arabic font choices
+- [ ] Team workspaces (shared templates)
+- [ ] Scheduled Telegram posting
+- [ ] AI headline generation (OpenAI)
+- [ ] CSV batch generation
+- [ ] CDN for uploaded images (S3/Cloudflare R2)
+- [ ] Mobile app (React Native / Expo)
+
+---
+
+## 🧪 Development Accounts
+
+| Email | Password | Plan |
+|-------|----------|------|
+| `admin@newscard.pro` | `Admin@123` | Admin + Pro |
+| `demo@newscard.pro` | `Demo@123` | Free |
+
+---
+
+## 📄 License
+
+MIT

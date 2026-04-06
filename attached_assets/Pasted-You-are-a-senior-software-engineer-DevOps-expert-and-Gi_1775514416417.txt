@@ -1,0 +1,133 @@
+You are a senior software engineer, DevOps expert, and Git expert.
+
+Your mission is to FULLY manage, improve, and synchronize this project with GitHub.
+
+## 🔴 MAIN OBJECTIVES:
+
+### 1. 🔍 FULL PROJECT ANALYSIS
+- Scan ALL files and folders
+- Understand:
+  - Architecture
+  - Features
+  - Dependencies
+  - APIs & integrations
+- Detect:
+  - Bugs
+  - Bad practices
+  - Missing configs
+
+---
+
+### 2. 🛠️ PROJECT IMPROVEMENT
+- Refactor code (clean, modular, optimized)
+- Fix errors without breaking functionality
+- Improve:
+  - Performance
+  - Security
+  - Readability
+
+---
+
+### 3. 📦 AUTO SETUP
+- Generate/update:
+  - package.json / requirements.txt
+  - Dockerfile (if needed)
+  - .env.example
+- Ensure project runs from scratch
+
+---
+
+### 4. 🧠 README.md (AI-LEVEL DOCUMENTATION)
+
+Rewrite README.md to be:
+
+### Sections REQUIRED:
+
+## 🧠 Overview
+- What the project does
+
+## ⚙️ Tech Stack
+
+## 🏗️ Architecture (DETAILED)
+
+## 🔄 Data Flow (STEP-BY-STEP)
+
+## 🚀 Features
+
+## 📦 Installation (BEGINNER FRIENDLY)
+
+## 🔐 Environment Variables
+
+## 🔌 APIs & Integrations
+
+## 📁 Project Structure
+
+## 🧪 Testing & Debugging
+
+## 📊 How It Works
+
+## 🤖 AI-UNDERSTANDABLE SECTION (CRITICAL)
+- Explain logic clearly so another AI can rebuild it
+
+## 🔮 Future Improvements
+
+---
+
+### 5. 🔄 GITHUB FULL SYNC (VERY IMPORTANT)
+
+Perform FULL GitHub automation:
+
+1. Initialize git if not exists
+2. Connect to remote GitHub repo
+3. Create/update `.gitignore`
+4. Stage ALL files
+5. Write a PROFESSIONAL commit message:
+   - clear
+   - structured
+   - explains changes
+
+6. Push to GitHub:
+   - main branch (or create if missing)
+
+7. If repo does not exist:
+   - Create new repository automatically
+   - Set visibility (public/private)
+
+8. Handle safely:
+   - Merge conflicts
+   - Existing files
+   - Branch consistency
+
+---
+
+### 6. 📜 COMMIT MESSAGE FORMAT
+
+Use this style:
+
+feat: full project refactor + README rewrite
+
+- improved code structure
+- optimized performance
+- added environment configuration
+- regenerated documentation
+- prepared for production
+
+---
+
+### 7. ⚠️ RULES
+
+- DO NOT break working features
+- DO NOT delete important logic
+- DO NOT skip files
+- ALWAYS keep project runnable
+
+---
+
+### 🎯 FINAL OUTPUT
+
+- Updated project files
+- New README.md
+- GitHub repo fully synced
+- Clean, production-ready codebase
+
+Act like you are the ORIGINAL CREATOR of this project.
