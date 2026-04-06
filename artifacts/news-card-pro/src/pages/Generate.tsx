@@ -1647,65 +1647,114 @@ export default function Generate() {
 
             {/* ── CANVAS MODE: freely draggable elements (z-index 11+) ── */}
             {canvasMode && (
-              <div onClick={() => setSelElem(null)} style={{ position: "absolute", inset: 0, zIndex: 11 }}>
+              <div
+                onMouseDown={(e) => { if (e.target === e.currentTarget) setSelElem(null); }}
+                style={{ position: "absolute", inset: 0, zIndex: 11 }}
+              >
 
-                {/* Headline */}
-                <div
-                  onMouseDown={startDrag("headline")}
-                  style={{ position: "absolute", left: `${canvasLayout.headline.x}%`, top: `${canvasLayout.headline.y}%`, width: `${canvasLayout.headline.w}%`, cursor: "move", userSelect: "none", outline: selElem === "headline" ? "1.5px dashed #6366f1" : "1.5px dashed rgba(255,255,255,0.2)", borderRadius: "3px", padding: "2px 4px", boxSizing: "border-box", direction: "rtl", zIndex: 11 }}
-                >
-                  <p style={{ color: customTextColor || tmpl.textColor, fontSize: `${fontSize}px`, fontWeight, fontFamily: `'${font}', sans-serif`, lineHeight: 1.45, margin: 0, textAlign: headlineAlign, textShadow: textShadow ? "0 1px 4px rgba(0,0,0,0.7)" : "none", pointerEvents: "none" }}>
-                    {headline || "أدخل العنوان هنا..."}
-                  </p>
-                  {selElem === "headline" && <div onMouseDown={startResize("headline")} style={{ position: "absolute", right: -5, top: "50%", transform: "translateY(-50%)", width: 10, height: 24, background: "#6366f1", cursor: "ew-resize", borderRadius: "3px", zIndex: 13 }} />}
-                  {selElem === "headline" && <div style={{ position: "absolute", top: -18, right: 0, fontSize: "9px", color: "#a5b4fc", background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: "3px", whiteSpace: "nowrap", pointerEvents: "none" }}>العنوان — اسحب للتحريك • اسحب الحافة لتغيير العرض</div>}
-                </div>
+                {/* ── Reusable canvas element wrapper ── */}
+                {(
+                  [
+                    {
+                      key: "headline" as ElemKey,
+                      rect: canvasLayout.headline,
+                      label: "عنوان",
+                      content: (
+                        <p style={{ color: customTextColor || tmpl.textColor, fontSize: `${fontSize}px`, fontWeight, fontFamily: `'${font}', sans-serif`, lineHeight: 1.45, margin: 0, textAlign: headlineAlign, textShadow: textShadow ? "0 1px 4px rgba(0,0,0,0.7)" : "none", pointerEvents: "none", direction: "rtl" }}>
+                          {headline || "أدخل العنوان هنا..."}
+                        </p>
+                      ),
+                    },
+                    ...(showSubtitle && subtitle ? [{
+                      key: "subtitle" as ElemKey,
+                      rect: canvasLayout.subtitle,
+                      label: "ترجمة",
+                      content: (
+                        <p style={{ color: tmpl.labelColor, fontSize: `${Math.max(11, fontSize - 8)}px`, fontFamily: `'${font}', sans-serif`, margin: 0, lineHeight: 1.4, textAlign: subtitleAlign, pointerEvents: "none", direction: "rtl" }}>{subtitle}</p>
+                      ),
+                    }] : []),
+                    ...(showLabel && label ? [{
+                      key: "label" as ElemKey,
+                      rect: canvasLayout.label,
+                      label: "تصنيف",
+                      content: (
+                        <div style={{ background: tmpl.isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.1)", borderRadius: "4px", padding: "2px 8px", display: "inline-block", pointerEvents: "none" }}>
+                          <span style={{ color: tmpl.labelColor, fontSize: "10px", fontFamily: `'${font}', sans-serif` }}>{label}</span>
+                        </div>
+                      ),
+                    }] : []),
+                    {
+                      key: "logo" as ElemKey,
+                      rect: canvasLayout.logo,
+                      label: "شعار",
+                      content: useLogoText && logoText ? (
+                        <div style={{ background: "rgba(0,0,0,0.4)", borderRadius: "4px", padding: "3px 8px", display: "inline-block", pointerEvents: "none" }}>
+                          <span style={{ color: "#ffffff", fontSize: "11px", fontWeight: 700, fontFamily: `'${font}', sans-serif` }}>{logoText}</span>
+                        </div>
+                      ) : logoImage ? (
+                        <img src={logoImage} alt="logo" style={{ width: "100%", height: "auto", objectFit: "contain", filter: logoInvert ? "invert(1)" : "none", display: "block", pointerEvents: "none" }} />
+                      ) : (
+                        <div style={{ background: "rgba(255,255,255,0.08)", border: "1px dashed rgba(255,255,255,0.3)", borderRadius: "4px", padding: "4px 8px", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+                          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "10px", fontFamily: "'Cairo', sans-serif" }}>شعار</span>
+                        </div>
+                      ),
+                    },
+                  ] as { key: ElemKey; rect: { x: number; y: number; w: number }; label: string; content: React.ReactNode }[]
+                ).map(({ key, rect, label: elemLabel, content }) => {
+                  const sel = selElem === key;
+                  return (
+                    <div
+                      key={key}
+                      onMouseDown={startDrag(key)}
+                      style={{
+                        position: "absolute",
+                        left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.w}%`,
+                        cursor: "move", userSelect: "none",
+                        outline: sel ? "2px solid #6366f1" : "1px dashed rgba(255,255,255,0.25)",
+                        borderRadius: "4px",
+                        padding: "2px 4px",
+                        boxSizing: "border-box",
+                        zIndex: sel ? 13 : 11,
+                      }}
+                    >
+                      {content}
 
-                {/* Subtitle */}
-                {showSubtitle && subtitle && (
-                  <div
-                    onMouseDown={startDrag("subtitle")}
-                    style={{ position: "absolute", left: `${canvasLayout.subtitle.x}%`, top: `${canvasLayout.subtitle.y}%`, width: `${canvasLayout.subtitle.w}%`, cursor: "move", userSelect: "none", outline: selElem === "subtitle" ? "1.5px dashed #6366f1" : "1.5px dashed rgba(255,255,255,0.2)", borderRadius: "3px", padding: "2px 4px", boxSizing: "border-box", direction: "rtl", zIndex: 11 }}
-                  >
-                    <p style={{ color: tmpl.labelColor, fontSize: `${Math.max(11, fontSize - 8)}px`, fontFamily: `'${font}', sans-serif`, margin: 0, lineHeight: 1.4, textAlign: subtitleAlign, pointerEvents: "none" }}>{subtitle}</p>
-                    {selElem === "subtitle" && <div onMouseDown={startResize("subtitle")} style={{ position: "absolute", right: -5, top: "50%", transform: "translateY(-50%)", width: 10, height: 24, background: "#6366f1", cursor: "ew-resize", borderRadius: "3px", zIndex: 13 }} />}
-                    {selElem === "subtitle" && <div style={{ position: "absolute", top: -18, right: 0, fontSize: "9px", color: "#a5b4fc", background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: "3px", whiteSpace: "nowrap", pointerEvents: "none" }}>الترجمة</div>}
-                  </div>
-                )}
+                      {/* Label badge (always shown in canvas mode) */}
+                      <div style={{
+                        position: "absolute", top: -16, left: 0,
+                        fontSize: "9px", color: sel ? "#c7d2fe" : "rgba(255,255,255,0.45)",
+                        background: sel ? "rgba(99,102,241,0.85)" : "rgba(0,0,0,0.5)",
+                        padding: "1px 6px", borderRadius: "3px", whiteSpace: "nowrap",
+                        pointerEvents: "none", lineHeight: 1.6,
+                      }}>
+                        {elemLabel}
+                      </div>
 
-                {/* Label */}
-                {showLabel && label && (
-                  <div
-                    onMouseDown={startDrag("label")}
-                    style={{ position: "absolute", left: `${canvasLayout.label.x}%`, top: `${canvasLayout.label.y}%`, width: `${canvasLayout.label.w}%`, cursor: "move", userSelect: "none", outline: selElem === "label" ? "1.5px dashed #6366f1" : "1.5px dashed rgba(255,255,255,0.2)", borderRadius: "3px", padding: "2px 4px", boxSizing: "border-box", zIndex: 11 }}
-                  >
-                    <div style={{ background: tmpl.isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.1)", borderRadius: "4px", padding: "2px 8px", display: "inline-block", pointerEvents: "none" }}>
-                      <span style={{ color: tmpl.labelColor, fontSize: "10px", fontFamily: `'${font}', sans-serif` }}>{label}</span>
+                      {/* ── Resize handle — bottom-right corner, large touch target ── */}
+                      <div
+                        onMouseDown={startResize(key)}
+                        onClick={(e) => e.stopPropagation()}
+                        title="اسحب لتغيير العرض"
+                        style={{
+                          position: "absolute",
+                          bottom: 0, right: 0,
+                          width: 26, height: 26,
+                          background: sel ? "#6366f1" : "rgba(99,102,241,0.7)",
+                          cursor: "ew-resize",
+                          borderRadius: "4px 0 4px 0",
+                          zIndex: 15,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "12px", color: "#fff",
+                          userSelect: "none",
+                          boxShadow: "0 1px 5px rgba(0,0,0,0.5)",
+                          lineHeight: 1,
+                        }}
+                      >
+                        ↔
+                      </div>
                     </div>
-                    {selElem === "label" && <div onMouseDown={startResize("label")} style={{ position: "absolute", right: -5, top: "50%", transform: "translateY(-50%)", width: 10, height: 24, background: "#6366f1", cursor: "ew-resize", borderRadius: "3px", zIndex: 13 }} />}
-                    {selElem === "label" && <div style={{ position: "absolute", top: -18, right: 0, fontSize: "9px", color: "#a5b4fc", background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: "3px", whiteSpace: "nowrap", pointerEvents: "none" }}>التصنيف</div>}
-                  </div>
-                )}
-
-                {/* Logo (canvas mode) */}
-                <div
-                  onMouseDown={startDrag("logo")}
-                  style={{ position: "absolute", left: `${canvasLayout.logo.x}%`, top: `${canvasLayout.logo.y}%`, width: `${canvasLayout.logo.w}%`, cursor: "move", userSelect: "none", outline: selElem === "logo" ? "1.5px dashed #6366f1" : "1.5px dashed rgba(255,255,255,0.2)", borderRadius: "3px", padding: "2px", boxSizing: "border-box", zIndex: 11 }}
-                >
-                  {useLogoText && logoText ? (
-                    <div style={{ background: "rgba(0,0,0,0.4)", borderRadius: "4px", padding: "3px 8px", display: "inline-block", pointerEvents: "none" }}>
-                      <span style={{ color: "#ffffff", fontSize: "11px", fontWeight: 700, fontFamily: `'${font}', sans-serif` }}>{logoText}</span>
-                    </div>
-                  ) : logoImage ? (
-                    <img src={logoImage} alt="logo" style={{ width: "100%", height: "auto", objectFit: "contain", filter: logoInvert ? "invert(1)" : "none", display: "block", pointerEvents: "none" }} />
-                  ) : (
-                    <div style={{ background: "rgba(255,255,255,0.1)", border: "1px dashed rgba(255,255,255,0.3)", borderRadius: "4px", padding: "4px 8px", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-                      <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "10px", fontFamily: "'Cairo', sans-serif" }}>شعار</span>
-                    </div>
-                  )}
-                  {selElem === "logo" && <div onMouseDown={startResize("logo")} style={{ position: "absolute", right: -5, top: "50%", transform: "translateY(-50%)", width: 10, height: 24, background: "#6366f1", cursor: "ew-resize", borderRadius: "3px", zIndex: 13 }} />}
-                  {selElem === "logo" && <div style={{ position: "absolute", top: -18, right: 0, fontSize: "9px", color: "#a5b4fc", background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: "3px", whiteSpace: "nowrap", pointerEvents: "none" }}>الشعار</div>}
-                </div>
+                  );
+                })}
 
               </div>
             )}
