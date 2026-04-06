@@ -286,6 +286,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     labelAlign,
     watermarkText,
     watermarkOpacity,
+    canvasLayout: (rawBody as any).canvasLayout ?? null,
   });
 
   const imageUrl = `/api/uploads/${fileName}`;

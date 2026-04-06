@@ -184,6 +184,13 @@ export interface GenerateOptions {
   // Watermark
   watermarkText?: string | null;
   watermarkOpacity?: number;
+  // Canvas free-positioning layout
+  canvasLayout?: {
+    headline?: { x: number; y: number; w: number };
+    subtitle?:  { x: number; y: number; w: number };
+    label?:     { x: number; y: number; w: number };
+    logo?:      { x: number; y: number; w: number };
+  } | null;
 }
 
 function esc(s: string): string {
@@ -229,6 +236,7 @@ async function buildHtml(opts: GenerateOptions, w: number, h: number, bgDataUrl?
   const labelAlign     = opts.labelAlign     ?? "right";
   const watermarkText  = opts.watermarkText  || null;
   const watermarkOp    = Math.min(1, Math.max(0, opts.watermarkOpacity ?? 0.18));
+  const cl             = opts.canvasLayout ?? null; // canvas free-positioning layout
 
   // Label flex alignment mapping (banner direction is rtl)
   const labelFlexAlign = labelAlign === "center" ? "center"
@@ -320,9 +328,47 @@ async function buildHtml(opts: GenerateOptions, w: number, h: number, bgDataUrl?
        </div>`
     : "";
 
-  // Custom PNG overlay — covers entire card
+  // Custom PNG overlay — z-index 5 in canvas mode, 10 in classic
+  const overlayZIndex = cl ? 5 : 10;
   const overlayHtml = overlayDataUrl
-    ? `<img src="${overlayDataUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:10;" />`
+    ? `<img src="${overlayDataUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:${overlayZIndex};" />`
+    : "";
+
+  // ── Canvas free-positioning elements ──────────────────────────────────────
+  const pct = (v: number, dim: number) => Math.round(v / 100 * dim);
+
+  const canvasHeadlineHtml = cl?.headline
+    ? `<div style="position:absolute;left:${pct(cl.headline.x,w)}px;top:${pct(cl.headline.y,h)}px;width:${pct(cl.headline.w,w)}px;z-index:11;direction:rtl;box-sizing:border-box;padding:0 ${Math.round(4*scale)}px;">
+        <p style="color:${textColor};font-size:${fontSz}px;font-weight:${fontWt};font-family:'${font}',sans-serif;line-height:1.45;margin:0;text-shadow:${shadow};text-align:${headlineAlign};">${esc(title)}</p>
+       </div>`
+    : "";
+
+  const canvasSubtitleHtml = cl?.subtitle && subtitle
+    ? `<div style="position:absolute;left:${pct(cl.subtitle.x,w)}px;top:${pct(cl.subtitle.y,h)}px;width:${pct(cl.subtitle.w,w)}px;z-index:11;direction:rtl;box-sizing:border-box;padding:0 ${Math.round(4*scale)}px;">
+        <p style="color:${labelColor};font-size:${Math.max(20, fontSz - Math.round(8*scale))}px;font-weight:400;font-family:'${font}',sans-serif;line-height:1.4;margin:0;text-align:${subtitleAlign};">${esc(subtitle)}</p>
+       </div>`
+    : "";
+
+  const canvasLabelHtml = cl?.label && label
+    ? `<div style="position:absolute;left:${pct(cl.label.x,w)}px;top:${pct(cl.label.y,h)}px;width:${pct(cl.label.w,w)}px;z-index:11;box-sizing:border-box;padding:0 ${Math.round(4*scale)}px;">
+        <div style="background:${isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.1)"};border-radius:${Math.round(4*scale)}px;padding:${Math.round(3*scale)}px ${Math.round(8*scale)}px;display:inline-block;">
+          <span style="color:${labelColor};font-size:${Math.round(11*scale)}px;font-family:'${font}',sans-serif;">${esc(label)}</span>
+        </div>
+       </div>`
+    : "";
+
+  const canvasLogoHtml = cl?.logo
+    ? logoDataUrl
+      ? `<div style="position:absolute;left:${pct(cl.logo.x,w)}px;top:${pct(cl.logo.y,h)}px;width:${pct(cl.logo.w,w)}px;z-index:11;box-sizing:border-box;">
+          <img src="${logoDataUrl}" style="width:100%;height:auto;object-fit:contain;${logoInvert ? "filter:invert(1);" : ""}" />
+         </div>`
+      : logoText
+      ? `<div style="position:absolute;left:${pct(cl.logo.x,w)}px;top:${pct(cl.logo.y,h)}px;width:${pct(cl.logo.w,w)}px;z-index:11;box-sizing:border-box;padding:0 ${Math.round(4*scale)}px;">
+          <div style="background:rgba(0,0,0,0.3);border-radius:${Math.round(4*scale)}px;padding:${Math.round(4*scale)}px ${Math.round(10*scale)}px;display:inline-block;">
+            <span style="color:#ffffff;font-size:${Math.round(13*scale)}px;font-weight:700;font-family:'${font}',sans-serif;">${esc(logoText)}</span>
+          </div>
+         </div>`
+      : ""
     : "";
 
   // Banner padding accounts for social bar
@@ -382,15 +428,19 @@ body { margin: 0; background: transparent; }
   <div class="photo">${photoBg}</div>
   <div class="banner">
     ${waveHtml}
-    ${quoteMark}
-    <p class="headline">${esc(title)}</p>
-    ${subtitleHtml}
-    ${labelHtml}
+    ${!cl ? quoteMark : ""}
+    ${!cl ? `<p class="headline">${esc(title)}</p>` : ""}
+    ${!cl ? subtitleHtml : ""}
+    ${!cl ? labelHtml : ""}
     ${socialBarHtml}
   </div>
-  ${logoHtml}
-  ${watermarkHtml}
+  ${!cl ? logoHtml : ""}
   ${overlayHtml}
+  ${cl ? canvasHeadlineHtml : ""}
+  ${cl ? canvasSubtitleHtml : ""}
+  ${cl ? canvasLabelHtml : ""}
+  ${cl ? canvasLogoHtml : ""}
+  ${watermarkHtml}
 </div>
 </body>
 </html>`;

@@ -64,6 +64,17 @@ type AspectRatio = keyof typeof ASPECT_RATIOS;
 type LogoPos = "top-right" | "top-left" | "bottom-right" | "bottom-left";
 type TabId = "content" | "design" | "saved" | "typography" | "api" | "settings";
 
+// ── Canvas free-positioning editor ─────────────────────────────────────────
+type ElemKey = "headline" | "subtitle" | "label" | "logo";
+interface ElemRect { x: number; y: number; w: number; }   // %, %, %
+type CanvasLayout = Record<ElemKey, ElemRect>;
+const CANVAS_DEFAULT: CanvasLayout = {
+  headline: { x: 4,  y: 63, w: 92 },
+  subtitle:  { x: 4,  y: 79, w: 92 },
+  label:     { x: 4,  y: 88, w: 42 },
+  logo:      { x: 74, y: 3,  w: 22 },
+};
+
 interface SavedDesign {
   id: string;
   name: string;
@@ -224,6 +235,11 @@ export default function Generate() {
   const [imgPositionX, setImgPositionX] = useState<number>(s.imgPositionX ?? 50);
   const [imgPositionY, setImgPositionY] = useState<number>(s.imgPositionY ?? 50);
 
+  // ── Canvas free-positioning state ──────────────────────────────────────────
+  const [canvasMode, setCanvasMode]     = useState(false);
+  const [canvasLayout, setCanvasLayout] = useState<CanvasLayout>(CANVAS_DEFAULT);
+  const [selElem, setSelElem]           = useState<ElemKey | null>(null);
+
   // Saved designs (local)
   const [savedDesigns, setSavedDesigns] = useState<SavedDesign[]>(loadDesigns());
   const [saveNameInput, setSaveNameInput] = useState("");
@@ -257,6 +273,8 @@ export default function Generate() {
   const overlayInputRef = useRef<HTMLInputElement>(null);
   const importRef       = useRef<HTMLInputElement>(null);
   const cardRef         = useRef<HTMLDivElement>(null);
+  const dragRef  = useRef<{ key: ElemKey; sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const rszRef   = useRef<{ key: ElemKey; sx: number; ow: number; cw: number } | null>(null);
 
   // ── Load API template from ?templateId=<id> URL param ────────────────────
   useEffect(() => {
@@ -437,6 +455,43 @@ export default function Generate() {
     await fetch(`/api/templates/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
     setApiTemplates(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  // ── Canvas drag / resize handlers ────────────────────────────────────────
+  const startDrag = useCallback((key: ElemKey) => (e: React.MouseEvent) => {
+    e.stopPropagation(); e.preventDefault();
+    setSelElem(key);
+    const el = canvasLayout[key];
+    dragRef.current = { key, sx: e.clientX, sy: e.clientY, ox: el.x, oy: el.y };
+    const card = cardRef.current; if (!card) return;
+    const onMove = (ev: MouseEvent) => {
+      const d = dragRef.current; if (!d) return;
+      const r = card.getBoundingClientRect();
+      setCanvasLayout(p => ({
+        ...p,
+        [d.key]: {
+          ...p[d.key],
+          x: Math.max(0, Math.min(90, d.ox + ((ev.clientX - d.sx) / r.width)  * 100)),
+          y: Math.max(0, Math.min(95, d.oy + ((ev.clientY - d.sy) / r.height) * 100)),
+        },
+      }));
+    };
+    const onUp = () => { dragRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [canvasLayout]);
+
+  const startResize = useCallback((key: ElemKey) => (e: React.MouseEvent) => {
+    e.stopPropagation(); e.preventDefault();
+    const card = cardRef.current; if (!card) return;
+    rszRef.current = { key, sx: e.clientX, ow: canvasLayout[key].w, cw: card.getBoundingClientRect().width };
+    const onMove = (ev: MouseEvent) => {
+      const d = rszRef.current; if (!d) return;
+      setCanvasLayout(p => ({ ...p, [d.key]: { ...p[d.key], w: Math.max(8, Math.min(98, d.ow + ((ev.clientX - d.sx) / d.cw) * 100)) } }));
+    };
+    const onUp = () => { rszRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [canvasLayout]);
 
   // ── Template helpers ──────────────────────────────────────────────────────
   const getTemplate = useCallback((): Template => {
@@ -638,6 +693,7 @@ export default function Generate() {
       if (bgServerFilename)   payload.backgroundPhotoFilename = bgServerFilename;
       if (!useLogoText && logoServerFilename) payload.logoPhotoFilename = logoServerFilename;
       if (overlayServerFilename) payload.overlayPhotoFilename = overlayServerFilename;
+      if (canvasMode) payload.canvasLayout = canvasLayout;
 
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -677,6 +733,7 @@ export default function Generate() {
       if (bgServerFilename)   payload.backgroundPhotoFilename = bgServerFilename;
       if (!useLogoText && logoServerFilename) payload.logoPhotoFilename = logoServerFilename;
       if (overlayServerFilename) payload.overlayPhotoFilename = overlayServerFilename;
+      if (canvasMode) payload.canvasLayout = canvasLayout;
 
       // Generate image first
       const genRes = await fetch("/api/generate", {
@@ -1515,12 +1572,8 @@ export default function Generate() {
               background: "#1a2035",
             }}
           >
-            {/* Photo area */}
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0,
-              height: isFade ? "100%" : `${photoH}%`,
-              overflow: "hidden",
-            }}>
+            {/* ── Photo area ─────────────────────────────────────────── */}
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: isFade ? "100%" : `${photoH}%`, overflow: "hidden" }}>
               {bgImage ? (
                 <img src={bgImage} alt="bg" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `${imgPositionX}% ${imgPositionY}%` }} />
               ) : (
@@ -1531,7 +1584,7 @@ export default function Generate() {
               )}
             </div>
 
-            {/* Banner */}
+            {/* ── Banner background (always rendered, text only in classic mode) ── */}
             <div style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
               height: isFade ? "100%" : `${bannerH}%`,
@@ -1540,63 +1593,162 @@ export default function Generate() {
               display: "flex", flexDirection: "column", justifyContent: "center",
               padding: isFade ? "0 14px 14px" : "10px 14px 10px",
               direction: "rtl",
+              zIndex: 2,
             }}>
-              {tmpl.showQuote && (
-                <div style={{ position: "absolute", top: 8, right: 10, fontSize: "30px", color: tmpl.accentColor || "#dc2626", lineHeight: 1, fontFamily: "Georgia, serif", opacity: 0.85 }}>❝</div>
-              )}
-              <p style={{
-                color: tmpl.textColor, fontSize: `${fontSize}px`, fontWeight: fontWeight,
-                fontFamily: `'${font}', sans-serif`, lineHeight: 1.45, margin: 0,
-                marginTop: tmpl.showQuote ? "24px" : 0,
-                textShadow: textShadow ? "0 1px 4px rgba(0,0,0,0.7)" : "none",
-                textAlign: headlineAlign,
-              }}>
-                {headline || "أدخل العنوان هنا..."}
-              </p>
-              {showSubtitle && subtitle && (
-                <p style={{ color: tmpl.labelColor, fontSize: `${Math.max(11, fontSize - 8)}px`, fontFamily: `'${font}', sans-serif`, margin: "5px 0 0", lineHeight: 1.4, textAlign: subtitleAlign }}>
-                  {subtitle}
-                </p>
-              )}
-              {showLabel && label && (
-                <div style={{ marginTop: "6px", alignSelf: labelAlign === "center" ? "center" : labelAlign === "left" ? "flex-end" : "flex-start", background: tmpl.isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.1)", borderRadius: "4px", padding: "2px 8px" }}>
-                  <span style={{ color: tmpl.labelColor, fontSize: "10px", fontFamily: `'${font}', sans-serif` }}>{label}</span>
-                </div>
+              {/* Classic mode: text lives inside banner */}
+              {!canvasMode && (
+                <>
+                  {tmpl.showQuote && (
+                    <div style={{ position: "absolute", top: 8, right: 10, fontSize: "30px", color: tmpl.accentColor || "#dc2626", lineHeight: 1, fontFamily: "Georgia, serif", opacity: 0.85 }}>❝</div>
+                  )}
+                  <p style={{ color: tmpl.textColor, fontSize: `${fontSize}px`, fontWeight, fontFamily: `'${font}', sans-serif`, lineHeight: 1.45, margin: 0, marginTop: tmpl.showQuote ? "24px" : 0, textShadow: textShadow ? "0 1px 4px rgba(0,0,0,0.7)" : "none", textAlign: headlineAlign }}>
+                    {headline || "أدخل العنوان هنا..."}
+                  </p>
+                  {showSubtitle && subtitle && (
+                    <p style={{ color: tmpl.labelColor, fontSize: `${Math.max(11, fontSize - 8)}px`, fontFamily: `'${font}', sans-serif`, margin: "5px 0 0", lineHeight: 1.4, textAlign: subtitleAlign }}>{subtitle}</p>
+                  )}
+                  {showLabel && label && (
+                    <div style={{ marginTop: "6px", alignSelf: labelAlign === "center" ? "center" : labelAlign === "left" ? "flex-end" : "flex-start", background: tmpl.isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.1)", borderRadius: "4px", padding: "2px 8px" }}>
+                      <span style={{ color: tmpl.labelColor, fontSize: "10px", fontFamily: `'${font}', sans-serif` }}>{label}</span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            {/* Logo */}
-            {useLogoText && logoText ? (
-              <div style={{ ...logoBoxStyle(), border: "none", background: "rgba(0,0,0,0.3)" }}>
-                <span style={{ color: "#ffffff", fontSize: "12px", fontWeight: 700, fontFamily: `'${font}', sans-serif` }}>{logoText}</span>
-              </div>
-            ) : logoImage ? (
-              <img src={logoImage} alt="logo" style={{ ...logoStyle(), filter: logoInvert ? "invert(1)" : "none" }} />
-            ) : (
-              <div style={logoBoxStyle()}>
-                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "10px", fontFamily: "'Cairo', sans-serif" }}>شعار</span>
-              </div>
+            {/* ── Custom overlay (z-index 5 — above banner background, below canvas elements) ── */}
+            {overlayImage && (
+              <img src={overlayImage} alt="overlay" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "fill", pointerEvents: "none", zIndex: 5 }} />
             )}
 
-            {/* Watermark preview */}
+            {/* ── Classic mode: Logo at fixed position ── */}
+            {!canvasMode && (
+              useLogoText && logoText ? (
+                <div style={{ ...logoBoxStyle(), border: "none", background: "rgba(0,0,0,0.3)", zIndex: 6 }}>
+                  <span style={{ color: "#ffffff", fontSize: "12px", fontWeight: 700, fontFamily: `'${font}', sans-serif` }}>{logoText}</span>
+                </div>
+              ) : logoImage ? (
+                <img src={logoImage} alt="logo" style={{ ...logoStyle(), filter: logoInvert ? "invert(1)" : "none", zIndex: 6 }} />
+              ) : (
+                <div style={{ ...logoBoxStyle(), zIndex: 6 }}>
+                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "10px", fontFamily: "'Cairo', sans-serif" }}>شعار</span>
+                </div>
+              )
+            )}
+
+            {/* ── Watermark (above overlay in both modes) ── */}
             {watermarkText && (
-              <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 7 }}>
+              <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: canvasMode ? 12 : 7 }}>
                 <span style={{ fontSize: `${Math.max(10, fontSize * 0.85)}px`, color: `rgba(255,255,255,${watermarkOpacity})`, fontFamily: `'${font}', sans-serif`, fontWeight: 700, transform: "rotate(-30deg)", whiteSpace: "nowrap", textShadow: "0 1px 3px rgba(0,0,0,0.2)" }}>
                   {watermarkText}
                 </span>
               </div>
             )}
 
-            {/* Custom overlay */}
-            {overlayImage && (
-              <img src={overlayImage} alt="overlay" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "fill", pointerEvents: "none", zIndex: 10 }} />
+            {/* ── CANVAS MODE: freely draggable elements (z-index 11+) ── */}
+            {canvasMode && (
+              <div onClick={() => setSelElem(null)} style={{ position: "absolute", inset: 0, zIndex: 11 }}>
+
+                {/* Headline */}
+                <div
+                  onMouseDown={startDrag("headline")}
+                  style={{ position: "absolute", left: `${canvasLayout.headline.x}%`, top: `${canvasLayout.headline.y}%`, width: `${canvasLayout.headline.w}%`, cursor: "move", userSelect: "none", outline: selElem === "headline" ? "1.5px dashed #6366f1" : "1.5px dashed rgba(255,255,255,0.2)", borderRadius: "3px", padding: "2px 4px", boxSizing: "border-box", direction: "rtl", zIndex: 11 }}
+                >
+                  <p style={{ color: customTextColor || tmpl.textColor, fontSize: `${fontSize}px`, fontWeight, fontFamily: `'${font}', sans-serif`, lineHeight: 1.45, margin: 0, textAlign: headlineAlign, textShadow: textShadow ? "0 1px 4px rgba(0,0,0,0.7)" : "none", pointerEvents: "none" }}>
+                    {headline || "أدخل العنوان هنا..."}
+                  </p>
+                  {selElem === "headline" && <div onMouseDown={startResize("headline")} style={{ position: "absolute", right: -5, top: "50%", transform: "translateY(-50%)", width: 10, height: 24, background: "#6366f1", cursor: "ew-resize", borderRadius: "3px", zIndex: 13 }} />}
+                  {selElem === "headline" && <div style={{ position: "absolute", top: -18, right: 0, fontSize: "9px", color: "#a5b4fc", background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: "3px", whiteSpace: "nowrap", pointerEvents: "none" }}>العنوان — اسحب للتحريك • اسحب الحافة لتغيير العرض</div>}
+                </div>
+
+                {/* Subtitle */}
+                {showSubtitle && subtitle && (
+                  <div
+                    onMouseDown={startDrag("subtitle")}
+                    style={{ position: "absolute", left: `${canvasLayout.subtitle.x}%`, top: `${canvasLayout.subtitle.y}%`, width: `${canvasLayout.subtitle.w}%`, cursor: "move", userSelect: "none", outline: selElem === "subtitle" ? "1.5px dashed #6366f1" : "1.5px dashed rgba(255,255,255,0.2)", borderRadius: "3px", padding: "2px 4px", boxSizing: "border-box", direction: "rtl", zIndex: 11 }}
+                  >
+                    <p style={{ color: tmpl.labelColor, fontSize: `${Math.max(11, fontSize - 8)}px`, fontFamily: `'${font}', sans-serif`, margin: 0, lineHeight: 1.4, textAlign: subtitleAlign, pointerEvents: "none" }}>{subtitle}</p>
+                    {selElem === "subtitle" && <div onMouseDown={startResize("subtitle")} style={{ position: "absolute", right: -5, top: "50%", transform: "translateY(-50%)", width: 10, height: 24, background: "#6366f1", cursor: "ew-resize", borderRadius: "3px", zIndex: 13 }} />}
+                    {selElem === "subtitle" && <div style={{ position: "absolute", top: -18, right: 0, fontSize: "9px", color: "#a5b4fc", background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: "3px", whiteSpace: "nowrap", pointerEvents: "none" }}>الترجمة</div>}
+                  </div>
+                )}
+
+                {/* Label */}
+                {showLabel && label && (
+                  <div
+                    onMouseDown={startDrag("label")}
+                    style={{ position: "absolute", left: `${canvasLayout.label.x}%`, top: `${canvasLayout.label.y}%`, width: `${canvasLayout.label.w}%`, cursor: "move", userSelect: "none", outline: selElem === "label" ? "1.5px dashed #6366f1" : "1.5px dashed rgba(255,255,255,0.2)", borderRadius: "3px", padding: "2px 4px", boxSizing: "border-box", zIndex: 11 }}
+                  >
+                    <div style={{ background: tmpl.isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.1)", borderRadius: "4px", padding: "2px 8px", display: "inline-block", pointerEvents: "none" }}>
+                      <span style={{ color: tmpl.labelColor, fontSize: "10px", fontFamily: `'${font}', sans-serif` }}>{label}</span>
+                    </div>
+                    {selElem === "label" && <div onMouseDown={startResize("label")} style={{ position: "absolute", right: -5, top: "50%", transform: "translateY(-50%)", width: 10, height: 24, background: "#6366f1", cursor: "ew-resize", borderRadius: "3px", zIndex: 13 }} />}
+                    {selElem === "label" && <div style={{ position: "absolute", top: -18, right: 0, fontSize: "9px", color: "#a5b4fc", background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: "3px", whiteSpace: "nowrap", pointerEvents: "none" }}>التصنيف</div>}
+                  </div>
+                )}
+
+                {/* Logo (canvas mode) */}
+                <div
+                  onMouseDown={startDrag("logo")}
+                  style={{ position: "absolute", left: `${canvasLayout.logo.x}%`, top: `${canvasLayout.logo.y}%`, width: `${canvasLayout.logo.w}%`, cursor: "move", userSelect: "none", outline: selElem === "logo" ? "1.5px dashed #6366f1" : "1.5px dashed rgba(255,255,255,0.2)", borderRadius: "3px", padding: "2px", boxSizing: "border-box", zIndex: 11 }}
+                >
+                  {useLogoText && logoText ? (
+                    <div style={{ background: "rgba(0,0,0,0.4)", borderRadius: "4px", padding: "3px 8px", display: "inline-block", pointerEvents: "none" }}>
+                      <span style={{ color: "#ffffff", fontSize: "11px", fontWeight: 700, fontFamily: `'${font}', sans-serif` }}>{logoText}</span>
+                    </div>
+                  ) : logoImage ? (
+                    <img src={logoImage} alt="logo" style={{ width: "100%", height: "auto", objectFit: "contain", filter: logoInvert ? "invert(1)" : "none", display: "block", pointerEvents: "none" }} />
+                  ) : (
+                    <div style={{ background: "rgba(255,255,255,0.1)", border: "1px dashed rgba(255,255,255,0.3)", borderRadius: "4px", padding: "4px 8px", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+                      <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "10px", fontFamily: "'Cairo', sans-serif" }}>شعار</span>
+                    </div>
+                  )}
+                  {selElem === "logo" && <div onMouseDown={startResize("logo")} style={{ position: "absolute", right: -5, top: "50%", transform: "translateY(-50%)", width: 10, height: 24, background: "#6366f1", cursor: "ew-resize", borderRadius: "3px", zIndex: 13 }} />}
+                  {selElem === "logo" && <div style={{ position: "absolute", top: -18, right: 0, fontSize: "9px", color: "#a5b4fc", background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: "3px", whiteSpace: "nowrap", pointerEvents: "none" }}>الشعار</div>}
+                </div>
+
+              </div>
             )}
           </div>
 
-          {/* Caption */}
-          <p style={{ color: "#475569", fontSize: "11px", fontFamily: "Inter, monospace", letterSpacing: "0.02em", textAlign: "center" }}>
-            معاينة مباشرة • {cardW}×{cardH} → يُصدَّر {ASPECT_RATIOS[aspectRatio].export}
-          </p>
+          {/* Caption + canvas toggle */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", maxWidth: `${cardW}px`, gap: "8px" }}>
+            <p style={{ color: "#475569", fontSize: "11px", fontFamily: "Inter, monospace", letterSpacing: "0.02em", margin: 0 }}>
+              {cardW}×{cardH} → {ASPECT_RATIOS[aspectRatio].export}
+            </p>
+            <div style={{ display: "flex", gap: "6px" }}>
+              {canvasMode && (
+                <button
+                  onClick={() => setCanvasLayout(CANVAS_DEFAULT)}
+                  title="إعادة تعيين المواضع"
+                  style={{ padding: "5px 10px", background: "rgba(100,116,139,0.15)", border: "1px solid rgba(100,116,139,0.3)", borderRadius: "7px", color: "#94a3b8", cursor: "pointer", fontSize: "11px", fontFamily: "'Cairo', sans-serif" }}
+                >↺ إعادة</button>
+              )}
+              <button
+                onClick={() => { setCanvasMode(p => !p); setSelElem(null); }}
+                style={{
+                  padding: "5px 12px",
+                  background: canvasMode ? "rgba(99,102,241,0.2)" : "rgba(100,116,139,0.1)",
+                  border: `1px solid ${canvasMode ? "rgba(99,102,241,0.6)" : "rgba(100,116,139,0.3)"}`,
+                  borderRadius: "7px",
+                  color: canvasMode ? "#a5b4fc" : "#94a3b8",
+                  cursor: "pointer", fontSize: "12px", fontWeight: 600,
+                  fontFamily: "'Cairo', sans-serif",
+                  display: "flex", alignItems: "center", gap: "5px",
+                }}
+              >
+                {canvasMode ? "✏️ وضع التصميم الحر — تشغيل" : "✏️ وضع التصميم الحر"}
+              </button>
+            </div>
+          </div>
+
+          {canvasMode && (
+            <div style={{ width: "100%", maxWidth: `${cardW}px`, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: "8px", padding: "8px 12px", direction: "rtl" }}>
+              <p style={{ margin: 0, fontSize: "11px", color: "#a5b4fc", fontFamily: "'Cairo', sans-serif", lineHeight: 1.6 }}>
+                🎨 <strong>وضع التصميم الحر:</strong> اسحب أي عنصر (عنوان / شعار / تصنيف) إلى المكان الذي تريده على البطاقة. اسحب الشريط الأزرق على اليمين لتغيير العرض.
+              </p>
+            </div>
+          )}
 
           {/* Download button */}
           <button
