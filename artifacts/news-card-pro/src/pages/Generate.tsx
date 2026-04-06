@@ -577,9 +577,9 @@ export default function Generate() {
   }, [selectedTemplateId, customBannerColor, customTextColor, customPhotoHeight]);
 
   const tmpl = getTemplate();
-  const isFade = tmpl.id === "slate-fade" || tmpl.id === "overlay-only";
   const photoH = tmpl.photoHeight;
-  const bannerH = 100 - photoH;
+  const bannerH = Math.max(0, 100 - photoH);
+  const isFade = tmpl.id === "slate-fade" || tmpl.id === "overlay-only" || photoH >= 100;
   const { w: cardW, h: cardH } = ASPECT_RATIOS[aspectRatio];
 
   const logoStyle = (): React.CSSProperties => {
@@ -1095,12 +1095,19 @@ export default function Generate() {
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#94a3b8", marginBottom: "4px" }}>
                         <span>ارتفاع الصورة %</span>
-                        <span>{customPhotoHeight}%</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span>{customPhotoHeight}%</span>
+                          <button
+                            onClick={() => setCustomPhotoHeight(customPhotoHeight === 100 ? 62 : 100)}
+                            title="خلفية كاملة"
+                            style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "6px", border: "none", cursor: "pointer", background: customPhotoHeight === 100 ? "#a855f7" : "#1e293b", color: customPhotoHeight === 100 ? "#fff" : "#94a3b8", fontFamily: "'Cairo', sans-serif", transition: "background 0.2s" }}
+                          >خلفية كاملة</button>
+                        </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span style={{ fontSize: "11px", color: "#475569" }}>40%</span>
-                        <input type="range" min={40} max={90} value={customPhotoHeight} onChange={e => setCustomPhotoHeight(+e.target.value)} style={{ flex: 1 }} />
-                        <span style={{ fontSize: "11px", color: "#475569" }}>90%</span>
+                        <input type="range" min={40} max={100} value={customPhotoHeight} onChange={e => setCustomPhotoHeight(+e.target.value)} style={{ flex: 1 }} />
+                        <span style={{ fontSize: "11px", color: "#475569" }}>100%</span>
                       </div>
                     </div>
                   </div>
