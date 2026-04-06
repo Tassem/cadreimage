@@ -111,6 +111,14 @@ export default function Home() {
   const [fontSize, setFontSize] = useState<number>(saved.fontSize ?? 26);
   const [fontWeight, setFontWeight] = useState<number>(saved.fontWeight ?? 700);
   const [textShadow, setTextShadow] = useState<boolean>(saved.textShadow ?? false);
+  // Text alignment per element
+  type TextAlign = "right" | "center" | "left";
+  const [headlineAlign, setHeadlineAlign] = useState<TextAlign>(saved.headlineAlign ?? "right");
+  const [subtitleAlign, setSubtitleAlign] = useState<TextAlign>(saved.subtitleAlign ?? "right");
+  const [labelAlign, setLabelAlign]       = useState<TextAlign>(saved.labelAlign ?? "right");
+  // Watermark
+  const [watermarkText, setWatermarkText]       = useState<string>(saved.watermarkText ?? "");
+  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(saved.watermarkOpacity ?? 0.18);
 
   const [logoInvert, setLogoInvert] = useState<boolean>(saved.logoInvert ?? false);
   const [logoPos, setLogoPos] = useState<LogoPos>(saved.logoPos ?? "top-right");
@@ -147,8 +155,10 @@ export default function Home() {
       showLabel, showSubtitle,
       imgPositionX, imgPositionY,
       customBannerColor, customTextColor, customLabelColor, customPhotoHeight, templateHeights,
+      headlineAlign, subtitleAlign, labelAlign,
+      watermarkText, watermarkOpacity,
     }));
-  }, [headline, subtitle, label, selectedTemplateId, aspectRatio, font, fontSize, fontWeight, textShadow, logoInvert, logoPos, useLogoText, logoText, showLabel, showSubtitle, imgPositionX, imgPositionY, customBannerColor, customTextColor, customLabelColor, customPhotoHeight, templateHeights]);
+  }, [headline, subtitle, label, selectedTemplateId, aspectRatio, font, fontSize, fontWeight, textShadow, logoInvert, logoPos, useLogoText, logoText, showLabel, showSubtitle, imgPositionX, imgPositionY, customBannerColor, customTextColor, customLabelColor, customPhotoHeight, templateHeights, headlineAlign, subtitleAlign, labelAlign, watermarkText, watermarkOpacity]);
 
   useEffect(() => {
     localStorage.setItem("ncg-saved-designs", JSON.stringify(savedDesigns));
@@ -609,6 +619,39 @@ export default function Home() {
                   <input type="checkbox" checked={textShadow} onChange={e => setTextShadow(e.target.checked)} />
                   إضافة ظل للنص
                 </label>
+
+                {/* Text alignment per element */}
+                {(() => {
+                  const sectionLabel2: React.CSSProperties = { fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" };
+                  const items: { label: string; value: TextAlign; set: (v: TextAlign) => void }[] = [
+                    { label: "العنوان الرئيسي", value: headlineAlign, set: setHeadlineAlign },
+                    { label: "النص الفرعي",     value: subtitleAlign, set: setSubtitleAlign },
+                    { label: "التسمية",          value: labelAlign,   set: setLabelAlign },
+                  ];
+                  return (
+                    <div>
+                      <p style={{ ...sectionLabel2, marginTop: "4px" }}>محاذاة النص</p>
+                      {items.map(item => (
+                        <div key={item.label} style={{ marginBottom: "10px" }}>
+                          <p style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "5px" }}>{item.label}</p>
+                          <div style={{ display: "flex", gap: "5px" }}>
+                            {(["right", "center", "left"] as TextAlign[]).map(a => {
+                              const icons: Record<TextAlign, string> = { right: "←", center: "≡", left: "→" };
+                              const labels2: Record<TextAlign, string> = { right: "يمين", center: "وسط", left: "يسار" };
+                              const active = a === item.value;
+                              return (
+                                <button key={a} onClick={() => item.set(a)} style={{ flex: 1, padding: "6px 4px", borderRadius: "7px", border: active ? "2px solid #3b82f6" : "2px solid #1e293b", background: active ? "#1e3a5f" : "#1e293b", color: active ? "#93c5fd" : "#64748b", cursor: "pointer", fontSize: "11px", fontFamily: "'Cairo', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                                  <span style={{ fontSize: "13px", fontWeight: 700 }}>{icons[a]}</span>
+                                  <span>{labels2[a]}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </>
             )}
 
@@ -627,6 +670,35 @@ export default function Home() {
                     style={{ width: "100%" }}
                   />
                   <button onClick={() => setTemplateHeights(prev => { const n = { ...prev }; delete n[selectedTemplateId]; return n; })} style={{ marginTop: "6px", fontSize: "12px", color: "#64748b", background: "none", border: "none", cursor: "pointer", fontFamily: "'Cairo', sans-serif" }}>إعادة تعيين</button>
+                </div>
+
+                {/* Watermark */}
+                <div>
+                  <p style={sectionLabel}>علامة مائية (Watermark)</p>
+                  <p style={{ fontSize: "11px", color: "#64748b", margin: "0 0 8px", direction: "rtl" }}>
+                    نص شفاف قطري فوق البطاقة
+                  </p>
+                  <input
+                    value={watermarkText}
+                    onChange={e => setWatermarkText(e.target.value)}
+                    placeholder="مثال: حقوق محفوظة ©"
+                    dir="rtl"
+                    style={{ width: "100%", background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "9px 12px", fontSize: "13px", outline: "none", fontFamily: "'Cairo', sans-serif", marginBottom: "10px", boxSizing: "border-box" }}
+                  />
+                  {watermarkText && (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#94a3b8", marginBottom: "4px" }}>
+                        <span>الشفافية</span>
+                        <span>{Math.round(watermarkOpacity * 100)}%</span>
+                      </div>
+                      <input
+                        type="range" min={5} max={80} step={1}
+                        value={Math.round(watermarkOpacity * 100)}
+                        onChange={e => setWatermarkOpacity(Number(e.target.value) / 100)}
+                        style={{ width: "100%" }}
+                      />
+                    </>
+                  )}
                 </div>
 
                 <div>
@@ -749,6 +821,7 @@ export default function Home() {
                 margin: 0,
                 marginTop: tmpl.showQuote ? "28px" : 0,
                 textShadow: textShadow ? "0 1px 4px rgba(0,0,0,0.7)" : "none",
+                textAlign: headlineAlign,
               }}>
                 {headline || "أدخل العنوان هنا..."}
               </p>
@@ -762,6 +835,7 @@ export default function Home() {
                   fontFamily: `'${font}', sans-serif`,
                   margin: "6px 0 0",
                   lineHeight: 1.4,
+                  textAlign: subtitleAlign,
                 }}>
                   {subtitle}
                 </p>
@@ -771,7 +845,7 @@ export default function Home() {
               {showLabel && label && (
                 <div style={{
                   marginTop: "8px",
-                  alignSelf: "flex-start",
+                  alignSelf: labelAlign === "center" ? "center" : labelAlign === "left" ? "flex-end" : "flex-start",
                   background: tmpl.isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.1)",
                   borderRadius: "4px",
                   padding: "3px 8px",
@@ -793,6 +867,15 @@ export default function Home() {
             ) : (
               <div style={logoPlaceholderStyle()}>
                 <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px", fontFamily: "'Cairo', sans-serif" }}>شعار</span>
+              </div>
+            )}
+
+            {/* Watermark preview */}
+            {watermarkText && (
+              <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 7 }}>
+                <span style={{ fontSize: `${Math.max(10, fontSize * 0.85)}px`, color: `rgba(255,255,255,${watermarkOpacity})`, fontFamily: `'${font}', sans-serif`, fontWeight: 700, transform: "rotate(-30deg)", whiteSpace: "nowrap", textShadow: "0 1px 3px rgba(0,0,0,0.2)" }}>
+                  {watermarkText}
+                </span>
               </div>
             )}
           </div>

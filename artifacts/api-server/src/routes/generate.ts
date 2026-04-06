@@ -230,6 +230,19 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     if (downloaded) logoImagePath = downloaded;
   }
 
+  // Text alignment
+  const toAlign = (v: unknown): "right" | "center" | "left" | undefined => {
+    if (v === "right" || v === "center" || v === "left") return v as "right" | "center" | "left";
+    return undefined;
+  };
+  const headlineAlign = toAlign(rawBody.headlineAlign);
+  const subtitleAlign = toAlign(rawBody.subtitleAlign);
+  const labelAlign    = toAlign(rawBody.labelAlign);
+
+  // Watermark
+  const watermarkText    = rawBody.watermarkText ? String(rawBody.watermarkText).slice(0, 80) : null;
+  const watermarkOpacity = rawBody.watermarkOpacity !== undefined ? Number(rawBody.watermarkOpacity) : undefined;
+
   // Generate image
   const { fileName, fileSize } = await generateCard({
     title: body.title,
@@ -253,6 +266,11 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     imgPositionX: imgPosX,
     imgPositionY: imgPosY,
     overlayImagePath,
+    headlineAlign,
+    subtitleAlign,
+    labelAlign,
+    watermarkText,
+    watermarkOpacity,
   });
 
   const imageUrl = `/api/uploads/${fileName}`;

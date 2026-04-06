@@ -176,7 +176,14 @@ export interface GenerateOptions {
   imgPositionX?: number;
   imgPositionY?: number;
   textShadow?: boolean;
-  overlayImagePath?: string | null;  // custom PNG overlay on top of entire card
+  overlayImagePath?: string | null;
+  // Text alignment per element
+  headlineAlign?: "right" | "center" | "left";
+  subtitleAlign?: "right" | "center" | "left";
+  labelAlign?: "right" | "center" | "left";
+  // Watermark
+  watermarkText?: string | null;
+  watermarkOpacity?: number;
 }
 
 function esc(s: string): string {
@@ -216,6 +223,17 @@ async function buildHtml(opts: GenerateOptions, w: number, h: number, bgDataUrl?
   const hasSocialBar = base.hasSocialBar ?? false;
   const hasWave      = base.hasWave ?? false;
   const waveColor    = base.waveColor ?? base.bannerColor;
+
+  const headlineAlign  = opts.headlineAlign  ?? "right";
+  const subtitleAlign  = opts.subtitleAlign  ?? "right";
+  const labelAlign     = opts.labelAlign     ?? "right";
+  const watermarkText  = opts.watermarkText  || null;
+  const watermarkOp    = Math.min(1, Math.max(0, opts.watermarkOpacity ?? 0.18));
+
+  // Label flex alignment mapping (banner direction is rtl)
+  const labelFlexAlign = labelAlign === "center" ? "center"
+                       : labelAlign === "left"   ? "flex-end"
+                       : "flex-start";
 
   // Social bar height
   const socialBarH   = hasSocialBar ? Math.round(44 * (w / 540)) : 0;
@@ -265,13 +283,21 @@ async function buildHtml(opts: GenerateOptions, w: number, h: number, bgDataUrl?
 
   // Subtitle
   const subtitleHtml = subtitle
-    ? `<p style="color:${labelColor};font-size:${Math.max(20, fontSz - Math.round(8*scale))}px;font-weight:400;font-family:'${font}',sans-serif;margin:${Math.round(6*scale)}px 0 0;line-height:1.4;">${esc(subtitle)}</p>`
+    ? `<p style="color:${labelColor};font-size:${Math.max(20, fontSz - Math.round(8*scale))}px;font-weight:400;font-family:'${font}',sans-serif;margin:${Math.round(6*scale)}px 0 0;line-height:1.4;text-align:${subtitleAlign};">${esc(subtitle)}</p>`
     : "";
 
   // Label badge
   const labelHtml = label
-    ? `<div style="margin-top:${Math.round(8*scale)}px;align-self:flex-start;background:${isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.1)"};border-radius:${Math.round(4*scale)}px;padding:${Math.round(3*scale)}px ${Math.round(8*scale)}px;">
+    ? `<div style="margin-top:${Math.round(8*scale)}px;align-self:${labelFlexAlign};background:${isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.1)"};border-radius:${Math.round(4*scale)}px;padding:${Math.round(3*scale)}px ${Math.round(8*scale)}px;">
         <span style="color:${labelColor};font-size:${Math.round(11*scale)}px;font-family:'${font}',sans-serif;">${esc(label)}</span>
+       </div>`
+    : "";
+
+  // Watermark
+  const wmFontSz = Math.round(Math.max(28, fontSz * 0.85));
+  const watermarkHtml = watermarkText
+    ? `<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:7;">
+        <span style="font-size:${wmFontSz}px;color:rgba(255,255,255,${watermarkOp});font-family:'${font}',sans-serif;font-weight:700;transform:rotate(-30deg);white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.25);">${esc(watermarkText)}</span>
        </div>`
     : "";
 
@@ -347,6 +373,7 @@ body { margin: 0; background: transparent; }
   margin: 0;
   margin-top: ${showQuote ? Math.round(36*scale) : 0}px;
   text-shadow: ${shadow};
+  text-align: ${headlineAlign};
 }
 </style>
 </head>
@@ -362,6 +389,7 @@ body { margin: 0; background: transparent; }
     ${socialBarHtml}
   </div>
   ${logoHtml}
+  ${watermarkHtml}
   ${overlayHtml}
 </div>
 </body>
