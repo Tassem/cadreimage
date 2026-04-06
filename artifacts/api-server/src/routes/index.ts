@@ -4,9 +4,10 @@ import authRouter from "./auth";
 import templatesRouter from "./templates";
 import generateRouter from "./generate";
 import historyRouter from "./history";
-import keysRouter from "./keys";
-import uploadRouter from "./upload";
+import photoRouter from "./photo";
+import botRouter from "./bot";
 import designsRouter from "./designs";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -15,8 +16,9 @@ router.use(authRouter);
 router.use(templatesRouter);
 router.use(generateRouter);
 router.use(historyRouter);
-router.use(keysRouter);
-router.use(uploadRouter);
+router.use(photoRouter);
+router.use(botRouter);
 router.use(designsRouter);
+router.use(adminRouter);
 
 export default router;

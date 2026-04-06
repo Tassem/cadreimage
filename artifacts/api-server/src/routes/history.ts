@@ -1,58 +1,69 @@
-import { Router } from "express";
-import { db } from "@workspace/db";
-import { generatedImagesTable, templatesTable, usersTable } from "@workspace/db/schema";
+import { Router, type IRouter } from "express";
+import { db, generatedImagesTable, templatesTable, usersTable } from "@workspace/db";
 import { eq, desc, count } from "drizzle-orm";
-import { requireAuth, AuthRequest } from "../middlewares/auth";
+import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { ListHistoryQueryParams } from "@workspace/api-zod";
+import { v4 as uuidv4 } from "uuid";
 
-const router = Router();
+const router: IRouter = Router();
 
-router.get("/history", requireAuth, async (req: AuthRequest, res) => {
-  const parse = ListHistoryQueryParams.safeParse({
-    limit: req.query.limit ? Number(req.query.limit) : 20,
-    offset: req.query.offset ? Number(req.query.offset) : 0,
-  });
-  if (!parse.success) {
-    res.status(400).json({ error: "Invalid query" });
-    return;
-  }
+const FREE_DAILY_LIMIT = 10;
 
-  const { limit, offset } = parse.data;
+router.get("/history", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+  const params = ListHistoryQueryParams.safeParse(req.query);
+  const limit = params.success ? (params.data.limit ?? 20) : 20;
+  const offset = params.success ? (params.data.offset ?? 0) : 0;
 
-  const [images, total] = await Promise.all([
-    db
-      .select()
-      .from(generatedImagesTable)
-      .where(eq(generatedImagesTable.userId, req.userId!))
-      .orderBy(desc(generatedImagesTable.createdAt))
-      .limit(limit ?? 20)
-      .offset(offset ?? 0),
-    db
-      .select({ count: count() })
-      .from(generatedImagesTable)
-      .where(eq(generatedImagesTable.userId, req.userId!)),
-  ]);
+  const images = await db
+    .select()
+    .from(generatedImagesTable)
+    .where(eq(generatedImagesTable.userId, req.userId!))
+    .orderBy(desc(generatedImagesTable.createdAt))
+    .limit(limit)
+    .offset(offset);
 
-  res.json({ images, total: total[0].count });
+  const [{ value: total }] = await db
+    .select({ value: count() })
+    .from(generatedImagesTable)
+    .where(eq(generatedImagesTable.userId, req.userId!));
+
+  res.json({ images, total: Number(total) });
 });
 
-router.get("/stats", requireAuth, async (req: AuthRequest, res) => {
+router.get("/stats", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   const user = req.user!;
 
-  const [totalImages, totalTemplates] = await Promise.all([
-    db.select({ count: count() }).from(generatedImagesTable).where(eq(generatedImagesTable.userId, req.userId!)),
-    db.select({ count: count() }).from(templatesTable).where(eq(templatesTable.userId, req.userId!)),
-  ]);
+  const [{ value: totalImages }] = await db
+    .select({ value: count() })
+    .from(generatedImagesTable)
+    .where(eq(generatedImagesTable.userId, req.userId!));
 
-  const dailyLimit = user.plan === "pro" ? 500 : user.plan === "enterprise" ? 9999 : 20;
+  const [{ value: totalTemplates }] = await db
+    .select({ value: count() })
+    .from(templatesTable)
+    .where(eq(templatesTable.userId, req.userId!));
+
+  // Reset today count if needed
+  const today = new Date().toISOString().slice(0, 10);
+  const imagesToday = user.lastResetDate === today ? user.imagesToday : 0;
 
   res.json({
-    totalImages: totalImages[0].count,
-    imagesToday: user.imagesToday,
-    totalTemplates: totalTemplates[0].count,
+    totalImages: Number(totalImages),
+    imagesToday,
+    totalTemplates: Number(totalTemplates),
     plan: user.plan,
-    dailyLimit,
+    dailyLimit: user.plan === "pro" ? -1 : FREE_DAILY_LIMIT,
   });
+});
+
+router.post("/keys/regenerate", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+  const newApiKey = `ncg_${uuidv4().replace(/-/g, "")}`;
+
+  await db.update(usersTable)
+    .set({ apiKey: newApiKey })
+    .where(eq(usersTable.id, req.userId!));
+
+  res.json({ apiKey: newApiKey });
 });
 
 export default router;

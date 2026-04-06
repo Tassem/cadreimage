@@ -7,11 +7,14 @@
  */
 
 export interface GenerateBody {
+  templateId?: number | null;
   title: string;
   subtitle?: string | null;
   label?: string | null;
-  templateId?: string | number | null;
+  imageUrl?: string | null;
+  logoUrl?: string | null;
   aspectRatio?: string;
-  backgroundPhotoFilename?: string | null;
-  logoPhotoFilename?: string | null;
+  bannerColor?: string | null;
+  textColor?: string | null;
+  font?: string | null;
 }

@@ -100,8 +100,8 @@ async function buildAll() {
       "playwright-core",
       "puppeteer",
       "puppeteer-core",
-      "chromium-bidi",
       "electron",
+      "chromium-bidi",
     ],
     sourcemap: "linked",
     plugins: [

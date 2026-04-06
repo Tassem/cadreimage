@@ -66,10 +66,8 @@ export const ListTemplatesResponseItem = zod.object({
   id: zod.number(),
   userId: zod.number(),
   name: zod.string(),
-  slug: zod.string().nullish(),
   backgroundUrl: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
-  overlayUrl: zod.string().nullish(),
   elements: zod.string(),
   category: zod.string(),
   aspectRatio: zod.string(),
@@ -81,12 +79,6 @@ export const ListTemplatesResponseItem = zod.object({
   fontSize: zod.number(),
   fontWeight: zod.number(),
   photoHeight: zod.number(),
-  subtitle: zod.string().nullish(),
-  label: zod.string().nullish(),
-  logoText: zod.string().nullish(),
-  logoPos: zod.string(),
-  logoInvert: zod.boolean(),
-  textShadow: zod.boolean(),
   isPublic: zod.boolean(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -167,7 +159,7 @@ export const UpdateTemplateParams = zod.object({
 });
 
 export const UpdateTemplateBody = zod.object({
-  name: zod.string(),
+  name: zod.string().optional(),
   slug: zod.string().nullish(),
   backgroundUrl: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
@@ -233,13 +225,16 @@ export const DeleteTemplateParams = zod.object({
  * @summary Generate a news card image
  */
 export const GenerateImageBody = zod.object({
+  templateId: zod.union([zod.string(), zod.number()]).nullish(),
   title: zod.string(),
   subtitle: zod.string().nullish(),
   label: zod.string().nullish(),
-  templateId: zod.union([zod.string(), zod.number()]).nullish(),
+  imageUrl: zod.string().nullish(),
+  logoUrl: zod.string().nullish(),
   aspectRatio: zod.string().optional(),
-  backgroundPhotoFilename: zod.string().nullish(),
-  logoPhotoFilename: zod.string().nullish(),
+  bannerColor: zod.string().nullish(),
+  textColor: zod.string().nullish(),
+  font: zod.string().nullish(),
 });
 
 /**
@@ -262,7 +257,6 @@ export const ListHistoryResponse = zod.object({
       title: zod.string(),
       imageUrl: zod.string(),
       aspectRatio: zod.string(),
-      fileSize: zod.number().nullish(),
       createdAt: zod.coerce.date(),
     }),
   ),

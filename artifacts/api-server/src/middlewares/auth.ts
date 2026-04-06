@@ -1,10 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db/schema";
+import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
-const JWT_SECRET = process.env["SESSION_SECRET"] || "fallback-secret";
+const JWT_SECRET = process.env.SESSION_SECRET || "fallback-dev-secret";
 
 export interface AuthRequest extends Request {
   userId?: number;
@@ -12,52 +11,49 @@ export interface AuthRequest extends Request {
 }
 
 export function signToken(userId: number): string {
-  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: "30d" });
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "30d" });
 }
 
-export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  const apiKey = req.headers["x-api-key"] as string | undefined;
+export function verifyToken(token: string): { userId: number } {
+  return jwt.verify(token, JWT_SECRET) as { userId: number };
+}
 
-  let userId: number | undefined;
+export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  const authHeader = req.headers.authorization;
+  const apiKey = req.headers["x-api-key"] as string;
+
+  let userId: number | null = null;
 
   if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice(7);
     try {
-      const payload = jwt.verify(token, JWT_SECRET) as { sub: number };
-      userId = Number(payload.sub);
+      const token = authHeader.slice(7);
+      const payload = verifyToken(token);
+      userId = payload.userId;
     } catch {
       res.status(401).json({ error: "Invalid token" });
       return;
     }
   } else if (apiKey) {
-    const users = await db.select().from(usersTable).where(eq(usersTable.apiKey, apiKey)).limit(1);
-    if (users.length === 0) {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.apiKey, apiKey));
+    if (!user) {
       res.status(401).json({ error: "Invalid API key" });
       return;
     }
-    userId = users[0].id;
-  } else {
+    userId = user.id;
+  }
+
+  if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
-  const users = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (users.length === 0) {
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
     res.status(401).json({ error: "User not found" });
     return;
   }
-  req.user = users[0];
-  req.userId = userId;
-  next();
-}
 
-export async function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
-  await requireAuth(req, res, () => {
-    if (!req.user?.isAdmin) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
-    next();
-  });
+  req.userId = userId;
+  req.user = user;
+  next();
 }

@@ -1,195 +1,284 @@
-import { Router, Request } from "express";
-import { db } from "@workspace/db";
-import { generatedImagesTable, templatesTable, usersTable } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
-import { requireAuth, AuthRequest } from "../middlewares/auth";
-import { generateCardImage, CardOptions } from "../lib/imageGenerator";
-import { logger } from "../lib/logger";
-import { writeFile, mkdir } from "fs/promises";
-import { join, extname } from "path";
-import { existsSync } from "fs";
-import { randomBytes } from "crypto";
+import path from "path";
+import fs from "fs";
+import { createWriteStream } from "fs";
+import { pipeline } from "stream/promises";
+import { Readable } from "stream";
+import { Router, type IRouter } from "express";
+import { db, usersTable, generatedImagesTable, templatesTable } from "@workspace/db";
+import { eq, or } from "drizzle-orm";
+import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { GenerateImageBody } from "@workspace/api-zod";
+import { generateCard } from "../lib/imageGenerator";
 
-const router = Router();
+/** Download a remote URL to a local temp file. Returns local file path or null on failure. */
+async function downloadUrlToFile(url: string, suffix: string): Promise<string | null> {
+  try {
+    const urlObj = new URL(url);
+    const allowed = ["http:", "https:"];
+    if (!allowed.includes(urlObj.protocol)) return null;
 
-const UPLOADS_DIR = join(process.cwd(), "uploads");
+    const uploadsDir = path.resolve("uploads");
+    fs.mkdirSync(uploadsDir, { recursive: true });
 
-async function ensureUploadsDir() {
-  if (!existsSync(UPLOADS_DIR)) {
-    await mkdir(UPLOADS_DIR, { recursive: true });
+    const ext = (urlObj.pathname.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").slice(0, 6) || "jpg";
+    const localName = `url_${Date.now()}_${suffix}.${ext}`;
+    const localPath = path.join(uploadsDir, localName);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok || !res.body) return null;
+
+    const writer = createWriteStream(localPath);
+    await pipeline(Readable.fromWeb(res.body as any), writer);
+    return localPath;
+  } catch {
+    return null;
   }
 }
 
-function getDailyLimit(plan: string): number {
-  switch (plan) {
-    case "pro": return 500;
-    case "enterprise": return 9999;
-    default: return 20;
-  }
-}
+const router: IRouter = Router();
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+const FREE_DAILY_LIMIT = 10;
 
-function getBaseUrl(req: Request): string {
-  const host = req.get("host") || "localhost";
-  const protocol = req.protocol || "http";
-  return `${protocol}://${host}`;
-}
-
-router.post("/generate", requireAuth, async (req: AuthRequest, res) => {
+router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   const user = req.user!;
-  const rawBody = req.body;
 
-  // Reset daily counter if needed
-  const today = todayStr();
+  // Reset daily count if it's a new day
+  const today = new Date().toISOString().slice(0, 10);
   if (user.lastResetDate !== today) {
-    await db.update(usersTable)
-      .set({ imagesToday: 0, lastResetDate: today })
-      .where(eq(usersTable.id, user.id));
+    await db.update(usersTable).set({ imagesToday: 0, lastResetDate: today }).where(eq(usersTable.id, user.id));
     user.imagesToday = 0;
   }
 
-  const dailyLimit = getDailyLimit(user.plan);
-  if (user.imagesToday >= dailyLimit) {
-    res.status(429).json({ error: `Daily limit of ${dailyLimit} images reached` });
+  // Check daily limit for free plan
+  if (user.plan === "free" && user.imagesToday >= FREE_DAILY_LIMIT) {
+    res.status(429).json({ error: `Daily limit of ${FREE_DAILY_LIMIT} images reached. Upgrade to Pro for unlimited.` });
     return;
   }
 
-  const {
-    title,
-    subtitle,
-    label,
-    templateId,
-    aspectRatio = "1:1",
-    backgroundPhotoFilename,
-    logoPhotoFilename,
-    // Extra fields from template or raw body
-    bannerColor,
-    bannerGradient,
-    textColor,
-    labelColor,
-    font,
-    fontSize,
-    fontWeight,
-    photoHeight,
-    logoPos,
-    logoInvert,
-    textShadow,
-    elements,
-    backgroundUrl,
-    logoUrl,
-    overlayUrl,
-  } = rawBody;
-
-  if (!title) {
-    res.status(400).json({ error: "title is required" });
+  const parsed = GenerateImageBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  let cardOpts: CardOptions = {
-    title,
-    subtitle,
-    label,
-    aspectRatio,
-    bannerColor: bannerColor || "#c0392b",
-    bannerGradient: bannerGradient || null,
-    textColor: textColor || "#ffffff",
-    labelColor: labelColor || "#ffffff",
-    font: font || "Cairo",
-    fontSize: fontSize || 42,
-    fontWeight: fontWeight || 700,
-    photoHeight: photoHeight || 60,
-    logoPos: logoPos || "top-left",
-    logoInvert: logoInvert || false,
-    textShadow: textShadow || false,
-    elements: elements || "[]",
-    overlayUrl: overlayUrl || null,
-    backgroundPhotoUrl: null,
-    logoPhotoUrl: null,
+  const body = parsed.data;
+
+  // Resolve templateId: can be a built-in string like "classic-blue" or a numeric DB template id
+  const rawTemplateId = body.templateId;
+
+  let resolvedTemplateId = "classic-blue";
+  let dbTemplateNumericId: number | null = null;
+
+  // Full template defaults loaded from DB (all fields)
+  type TemplateOverrides = {
+    bannerColor?: string;
+    textColor?: string;
+    labelColor?: string;
+    font?: string;
+    fontSize?: number;
+    fontWeight?: number;
+    photoHeight?: number;
+    subtitle?: string | null;
+    label?: string | null;
+    logoText?: string | null;
+    logoPos?: string;
+    logoInvert?: boolean;
+    textShadow?: boolean;
   };
+  let templateOverrides: TemplateOverrides = {};
 
-  // Load template if provided
-  let resolvedTemplateId: number | null = null;
-  if (templateId) {
-    const tId = typeof templateId === "string" ? parseInt(templateId, 10) : templateId;
-    const templates = await db
-      .select()
-      .from(templatesTable)
-      .where(and(eq(templatesTable.id, tId), eq(templatesTable.userId, user.id)))
-      .limit(1);
+  // Import BUILT_IN_TEMPLATES for validation
+  const { BUILT_IN_TEMPLATES } = await import("../lib/imageGenerator");
 
-    if (templates.length > 0) {
-      const t = templates[0];
-      resolvedTemplateId = t.id;
-      cardOpts = {
-        ...cardOpts,
-        bannerColor: bannerColor || t.bannerColor,
-        bannerGradient: bannerGradient || t.bannerGradient,
-        textColor: textColor || t.textColor,
-        labelColor: labelColor || t.labelColor,
-        font: font || t.font,
-        fontSize: fontSize || t.fontSize,
-        fontWeight: fontWeight || t.fontWeight,
-        photoHeight: photoHeight || t.photoHeight,
-        logoPos: logoPos || t.logoPos,
-        logoInvert: logoInvert !== undefined ? logoInvert : t.logoInvert,
-        textShadow: textShadow !== undefined ? textShadow : t.textShadow,
-        elements: elements || t.elements,
-        overlayUrl: overlayUrl || t.overlayUrl,
-        backgroundPhotoUrl: backgroundUrl || t.backgroundUrl || null,
-        logoPhotoUrl: logoUrl || t.logoUrl || null,
-      };
+  /** Extract all override fields from a DB template row */
+  function extractOverrides(t: typeof templatesTable.$inferSelect): TemplateOverrides {
+    return {
+      bannerColor: t.bannerColor ?? undefined,
+      textColor:   t.textColor   ?? undefined,
+      labelColor:  t.labelColor  ?? undefined,
+      font:        t.font        ?? undefined,
+      fontSize:    t.fontSize    ?? undefined,
+      fontWeight:  t.fontWeight  ?? undefined,
+      photoHeight: t.photoHeight ?? undefined,
+      subtitle:    t.subtitle    ?? null,
+      label:       t.label       ?? null,
+      logoText:    t.logoText    ?? null,
+      logoPos:     t.logoPos     ?? "top-right",
+      logoInvert:  t.logoInvert  ?? false,
+      textShadow:  t.textShadow  ?? false,
+    };
+  }
+
+  if (rawTemplateId !== null && rawTemplateId !== undefined) {
+    if (typeof rawTemplateId === "number") {
+      // Numeric DB template ID
+      const [template] = await db.select().from(templatesTable).where(eq(templatesTable.id, rawTemplateId));
+      if (template && (template.userId === user.id || template.isPublic)) {
+        dbTemplateNumericId = rawTemplateId;
+        templateOverrides = extractOverrides(template);
+      } else {
+        res.status(400).json({
+          error: `Template ID ${rawTemplateId} not found`,
+          availableBuiltInTemplates: Object.keys(BUILT_IN_TEMPLATES),
+        });
+        return;
+      }
+    } else if (typeof rawTemplateId === "string") {
+      if (BUILT_IN_TEMPLATES[rawTemplateId]) {
+        // Known built-in template ID like "classic-blue" or "teal"
+        resolvedTemplateId = rawTemplateId;
+      } else {
+        // Try to find by slug first, then by name (user's own OR public)
+        const candidates = await db
+          .select()
+          .from(templatesTable)
+          .where(or(
+            eq(templatesTable.userId, user.id),
+            eq(templatesTable.isPublic, true)
+          ));
+
+        const key = rawTemplateId.trim().toLowerCase();
+        const dbTpl = candidates.find(r =>
+          (r.slug ?? "").trim().toLowerCase() === key ||
+          r.name.trim().toLowerCase() === key
+        );
+
+        if (dbTpl) {
+          dbTemplateNumericId = dbTpl.id;
+          templateOverrides = extractOverrides(dbTpl);
+        } else {
+          res.status(400).json({
+            error: `Template "${rawTemplateId}" not found. Use a built-in ID, a numeric template ID, or a template slug.`,
+            availableBuiltInTemplates: Object.keys(BUILT_IN_TEMPLATES),
+            tip: "Create a custom template in the dashboard and note its ID or slug.",
+          });
+          return;
+        }
+      }
     }
   }
 
-  // Resolve uploaded file URLs
-  const baseUrl = getBaseUrl(req);
-  if (backgroundPhotoFilename) {
-    cardOpts.backgroundPhotoUrl = `${baseUrl}/api/uploads/${backgroundPhotoFilename}`;
-  } else if (backgroundUrl) {
-    cardOpts.backgroundPhotoUrl = backgroundUrl;
+  // Read extra fields directly from req.body (not Zod-parsed) to allow passthrough
+  const rawBody = req.body as Record<string, unknown>;
+
+  const safeFilename = (v: unknown) =>
+    v ? String(v).replace(/[^a-zA-Z0-9.\-_]/g, "") : null;
+
+  // Resolve background: file upload (filename) OR remote URL
+  const bgFilename = safeFilename(rawBody.backgroundPhotoFilename);
+  let backgroundImagePath: string | null = bgFilename ? `${path.resolve("uploads")}/${bgFilename}` : null;
+  if (!backgroundImagePath && rawBody.backgroundImageUrl) {
+    backgroundImagePath = await downloadUrlToFile(String(rawBody.backgroundImageUrl), "bg");
   }
 
-  if (logoPhotoFilename) {
-    cardOpts.logoPhotoUrl = `${baseUrl}/api/uploads/${logoPhotoFilename}`;
-  } else if (logoUrl) {
-    cardOpts.logoPhotoUrl = logoUrl;
+  // Resolve logo: file upload (filename) OR remote URL
+  const logoFilename = safeFilename(rawBody.logoPhotoFilename);
+  let logoImagePath: string | null = logoFilename ? `${path.resolve("uploads")}/${logoFilename}` : null;
+  if (!logoImagePath && rawBody.logoImageUrl) {
+    logoImagePath = await downloadUrlToFile(String(rawBody.logoImageUrl), "logo");
   }
 
-  try {
-    logger.info({ title, aspectRatio }, "Generating image");
-    const imageBuffer = await generateCardImage(cardOpts);
-
-    await ensureUploadsDir();
-    const filename = `gen_${randomBytes(8).toString("hex")}.png`;
-    const filePath = join(UPLOADS_DIR, filename);
-    await writeFile(filePath, imageBuffer);
-
-    const imageUrl = `${baseUrl}/api/uploads/${filename}`;
-    const fileSize = imageBuffer.length;
-
-    // Save to DB
-    const [generated] = await db.insert(generatedImagesTable).values({
-      userId: user.id,
-      templateId: resolvedTemplateId,
-      title,
-      imageUrl,
-      aspectRatio,
-      fileSize,
-    }).returning();
-
-    // Update daily counter
-    await db.update(usersTable)
-      .set({ imagesToday: user.imagesToday + 1 })
-      .where(eq(usersTable.id, user.id));
-
-    res.status(201).json(generated);
-  } catch (err) {
-    logger.error({ err }, "Image generation failed");
-    res.status(500).json({ error: "Image generation failed" });
+  // Resolve custom overlay: file upload OR remote URL
+  const overlayFilename = safeFilename(rawBody.overlayPhotoFilename);
+  let overlayImagePath: string | null = overlayFilename ? `${path.resolve("uploads")}/${overlayFilename}` : null;
+  if (!overlayImagePath && rawBody.overlayImageUrl) {
+    overlayImagePath = await downloadUrlToFile(String(rawBody.overlayImageUrl), "overlay");
   }
+
+  // Logo options: per-request overrides template defaults
+  const logoText   = rawBody.logoText   ? String(rawBody.logoText).slice(0, 60) : (templateOverrides.logoText ?? null);
+  const logoPos    = rawBody.logoPos    ? String(rawBody.logoPos)                : (templateOverrides.logoPos ?? "top-right");
+  const logoInvert = rawBody.logoInvert !== undefined
+    ? (rawBody.logoInvert === true || rawBody.logoInvert === "true")
+    : (templateOverrides.logoInvert ?? false);
+  const imgPosX    = rawBody.imgPositionX !== undefined ? Number(rawBody.imgPositionX) : 50;
+  const imgPosY    = rawBody.imgPositionY !== undefined ? Number(rawBody.imgPositionY) : 50;
+
+  // Typography/design: per-request overrides template defaults
+  const fontSize   = rawBody.fontSize   ? Number(rawBody.fontSize)   : templateOverrides.fontSize;
+  const fontWeight = rawBody.fontWeight ? Number(rawBody.fontWeight) : templateOverrides.fontWeight;
+  const textShadow = rawBody.textShadow !== undefined
+    ? (rawBody.textShadow === true || rawBody.textShadow === "true")
+    : (templateOverrides.textShadow ?? false);
+  const photoH     = rawBody.customPhotoHeight !== undefined
+    ? Number(rawBody.customPhotoHeight)
+    : templateOverrides.photoHeight;
+  const customBannerColor = rawBody.customBannerColor ? String(rawBody.customBannerColor) : undefined;
+  const customTextColor   = rawBody.customTextColor   ? String(rawBody.customTextColor)   : undefined;
+
+  // Subtitle and label: per-request overrides template defaults
+  const subtitle = body.subtitle !== undefined ? body.subtitle : (templateOverrides.subtitle ?? null);
+  const label    = body.label    !== undefined ? body.label    : (templateOverrides.label    ?? null);
+
+  // Logo image: if template has logoUrl and no per-request logo, download template's logoUrl
+  if (!logoImagePath && !logoText && templateOverrides.logoText == null) {
+    // no-op: keep null
+  }
+
+  // Generate image
+  const { fileName, fileSize } = await generateCard({
+    title: body.title,
+    subtitle,
+    label,
+    aspectRatio: body.aspectRatio ?? "1:1",
+    templateId: resolvedTemplateId,
+    bannerColor: customBannerColor ?? body.bannerColor ?? templateOverrides.bannerColor,
+    textColor: customTextColor ?? body.textColor ?? templateOverrides.textColor,
+    labelColor: templateOverrides.labelColor,
+    font: body.font ?? templateOverrides.font ?? "Cairo",
+    fontSize,
+    fontWeight,
+    photoHeight: photoH,
+    textShadow,
+    backgroundImagePath,
+    logoText,
+    logoImagePath,
+    logoPos,
+    logoInvert,
+    imgPositionX: imgPosX,
+    imgPositionY: imgPosY,
+    overlayImagePath,
+  });
+
+  const imageUrl = `/api/uploads/${fileName}`;
+
+  // Save to history (only store numeric DB template IDs)
+  const [generated] = await db.insert(generatedImagesTable).values({
+    userId: user.id,
+    templateId: dbTemplateNumericId,
+    title: body.title,
+    imageUrl,
+    aspectRatio: body.aspectRatio ?? "1:1",
+    fileSize,
+  }).returning();
+
+  // Increment usage counter
+  await db.update(usersTable)
+    .set({ imagesToday: user.imagesToday + 1 })
+    .where(eq(usersTable.id, user.id));
+
+  // Build absolute URL for convenience (useful for n8n / webhooks)
+  const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+  const host  = (req.headers["x-forwarded-host"] as string) || req.get("host") || "";
+  const imageFullUrl = host ? `${proto}://${host}${imageUrl}` : imageUrl;
+
+  res.status(201).json({
+    id: generated.id,
+    userId: generated.userId,
+    templateId: generated.templateId,
+    title: generated.title,
+    imageUrl: generated.imageUrl,
+    imageFullUrl,
+    aspectRatio: generated.aspectRatio,
+    createdAt: generated.createdAt,
+  });
 });
 
 export default router;

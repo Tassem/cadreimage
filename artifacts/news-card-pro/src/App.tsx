@@ -1,59 +1,50 @@
-import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/lib/auth";
 import NotFound from "@/pages/not-found";
 
-import Login from "@/pages/login";
-import Register from "@/pages/register";
-import Dashboard from "@/pages/dashboard";
-import Generate from "@/pages/generate";
-import Templates from "@/pages/templates";
-import History from "@/pages/history";
-import Settings from "@/pages/settings";
-
-import { AppLayout } from "@/components/layout/sidebar";
+import { AuthGuard } from "./components/layout/AuthGuard";
+import { AppLayout } from "./components/layout/AppLayout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Generate from "./pages/Generate";
+import History from "./pages/History";
+import Templates from "./pages/Templates";
+import Keys from "./pages/Keys";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const { token, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
-  }
-  
-  if (!token) {
-    return <Redirect to="/login" />;
-  }
-
   return (
-    <AppLayout>
-      <Component />
-    </AppLayout>
+    <AuthGuard>
+      <AppLayout>
+        <Component />
+      </AppLayout>
+    </AuthGuard>
   );
 }
 
 function Router() {
-  const { token, isLoading } = useAuth();
-
-  if (isLoading) return null;
-
   return (
     <Switch>
-      <Route path="/">
-        {token ? <Redirect to="/dashboard" /> : <Redirect to="/login" />}
-      </Route>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       
       <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
-      <Route path="/generate"><ProtectedRoute component={Generate} /></Route>
-      <Route path="/templates"><ProtectedRoute component={Templates} /></Route>
+      <Route path="/generate">
+        <AuthGuard>
+          <Generate />
+        </AuthGuard>
+      </Route>
       <Route path="/history"><ProtectedRoute component={History} /></Route>
-      <Route path="/settings"><ProtectedRoute component={Settings} /></Route>
+      <Route path="/templates"><ProtectedRoute component={Templates} /></Route>
+      <Route path="/keys"><ProtectedRoute component={Keys} /></Route>
+      <Route path="/admin" component={Admin} />
       
+      <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -63,13 +54,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <div className="dark">
-              <Router />
-            </div>
-          </WouterRouter>
-        </AuthProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Router />
+        </WouterRouter>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

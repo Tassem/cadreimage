@@ -8,10 +8,8 @@
 
 export interface CreateTemplateBody {
   name: string;
-  slug?: string | null;
   backgroundUrl?: string | null;
   logoUrl?: string | null;
-  overlayUrl?: string | null;
   elements?: string;
   category?: string;
   aspectRatio?: string;
@@ -23,11 +21,5 @@ export interface CreateTemplateBody {
   fontSize?: number;
   fontWeight?: number;
   photoHeight?: number;
-  subtitle?: string | null;
-  label?: string | null;
-  logoText?: string | null;
-  logoPos?: string;
-  logoInvert?: boolean;
-  textShadow?: boolean;
   isPublic?: boolean;
 }

@@ -1,88 +1,58 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { userSavedDesignsTable } from "@workspace/db/schema";
-import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, AuthRequest } from "../middlewares/auth";
+import { requireAuth } from "../middlewares/auth";
+import { db, userSavedDesignsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 
 const router = Router();
 
-router.get("/designs", requireAuth, async (req: AuthRequest, res) => {
+// GET /api/designs — list user's saved designs
+router.get("/designs", requireAuth, async (req, res) => {
+  const userId = (req as any).user.id;
   const designs = await db
     .select()
     .from(userSavedDesignsTable)
-    .where(eq(userSavedDesignsTable.userId, req.userId!))
-    .orderBy(desc(userSavedDesignsTable.updatedAt));
-  res.json(designs);
+    .where(eq(userSavedDesignsTable.userId, userId))
+    .orderBy(userSavedDesignsTable.createdAt);
+  return res.json({ designs });
 });
 
-router.post("/designs", requireAuth, async (req: AuthRequest, res) => {
-  const { name, designData, previewUrl } = req.body;
-  if (!name || !designData) {
-    res.status(400).json({ error: "name and designData are required" });
-    return;
-  }
+// POST /api/designs — save a design
+router.post("/designs", requireAuth, async (req, res) => {
+  const userId = (req as any).user.id;
+  const { name, settings } = req.body as { name: string; settings: unknown };
+  if (!name || !settings) return res.status(400).json({ error: "name and settings required" });
 
-  const [design] = await db.insert(userSavedDesignsTable).values({
-    userId: req.userId!,
-    name,
-    designData: typeof designData === "string" ? designData : JSON.stringify(designData),
-    previewUrl: previewUrl || null,
-  }).returning();
-
-  res.status(201).json(design);
-});
-
-router.get("/designs/:id", requireAuth, async (req: AuthRequest, res) => {
-  const id = Number(req.params.id);
-  const designs = await db
+  // Upsert by name — if name exists for this user, update it
+  const [existing] = await db
     .select()
     .from(userSavedDesignsTable)
-    .where(and(eq(userSavedDesignsTable.id, id), eq(userSavedDesignsTable.userId, req.userId!)))
-    .limit(1);
+    .where(and(eq(userSavedDesignsTable.userId, userId), eq(userSavedDesignsTable.name, name)));
 
-  if (designs.length === 0) {
-    res.status(404).json({ error: "Design not found" });
-    return;
+  let design;
+  if (existing) {
+    [design] = await db
+      .update(userSavedDesignsTable)
+      .set({ settings })
+      .where(eq(userSavedDesignsTable.id, existing.id))
+      .returning();
+  } else {
+    [design] = await db
+      .insert(userSavedDesignsTable)
+      .values({ userId, name, settings })
+      .returning();
   }
 
-  res.json(designs[0]);
+  return res.json({ design });
 });
 
-router.put("/designs/:id", requireAuth, async (req: AuthRequest, res) => {
-  const id = Number(req.params.id);
-  const { name, designData, previewUrl } = req.body;
-
-  const existing = await db
-    .select()
-    .from(userSavedDesignsTable)
-    .where(and(eq(userSavedDesignsTable.id, id), eq(userSavedDesignsTable.userId, req.userId!)))
-    .limit(1);
-
-  if (existing.length === 0) {
-    res.status(404).json({ error: "Design not found" });
-    return;
-  }
-
-  const [updated] = await db
-    .update(userSavedDesignsTable)
-    .set({
-      ...(name !== undefined && { name }),
-      ...(designData !== undefined && { designData: typeof designData === "string" ? designData : JSON.stringify(designData) }),
-      ...(previewUrl !== undefined && { previewUrl }),
-      updatedAt: new Date(),
-    })
-    .where(eq(userSavedDesignsTable.id, id))
-    .returning();
-
-  res.json(updated);
-});
-
-router.delete("/designs/:id", requireAuth, async (req: AuthRequest, res) => {
+// DELETE /api/designs/:id
+router.delete("/designs/:id", requireAuth, async (req, res) => {
+  const userId = (req as any).user.id;
   const id = Number(req.params.id);
   await db
     .delete(userSavedDesignsTable)
-    .where(and(eq(userSavedDesignsTable.id, id), eq(userSavedDesignsTable.userId, req.userId!)));
-  res.status(204).end();
+    .where(and(eq(userSavedDesignsTable.id, id), eq(userSavedDesignsTable.userId, userId)));
+  return res.json({ ok: true });
 });
 
 export default router;

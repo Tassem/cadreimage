@@ -378,16 +378,10 @@ components:
           type: integer
         name:
           type: string
-        slug:
-          type: string
-          nullable: true
         backgroundUrl:
           type: string
           nullable: true
         logoUrl:
-          type: string
-          nullable: true
-        overlayUrl:
           type: string
           nullable: true
         elements:
@@ -413,21 +407,6 @@ components:
           type: integer
         photoHeight:
           type: integer
-        subtitle:
-          type: string
-          nullable: true
-        label:
-          type: string
-          nullable: true
-        logoText:
-          type: string
-          nullable: true
-        logoPos:
-          type: string
-        logoInvert:
-          type: boolean
-        textShadow:
-          type: boolean
         isPublic:
           type: boolean
         createdAt:
@@ -436,23 +415,17 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, userId, name, elements, category, aspectRatio, bannerColor, textColor, labelColor, font, fontSize, fontWeight, photoHeight, logoPos, logoInvert, textShadow, isPublic, createdAt, updatedAt]
+      required: [id, userId, name, elements, category, aspectRatio, bannerColor, textColor, labelColor, font, fontSize, fontWeight, photoHeight, isPublic, createdAt, updatedAt]
 
     CreateTemplateBody:
       type: object
       properties:
         name:
           type: string
-        slug:
-          type: string
-          nullable: true
         backgroundUrl:
           type: string
           nullable: true
         logoUrl:
-          type: string
-          nullable: true
-        overlayUrl:
           type: string
           nullable: true
         elements:
@@ -478,21 +451,6 @@ components:
           type: integer
         photoHeight:
           type: integer
-        subtitle:
-          type: string
-          nullable: true
-        label:
-          type: string
-          nullable: true
-        logoText:
-          type: string
-          nullable: true
-        logoPos:
-          type: string
-        logoInvert:
-          type: boolean
-        textShadow:
-          type: boolean
         isPublic:
           type: boolean
       required: [name]
@@ -500,6 +458,9 @@ components:
     GenerateBody:
       type: object
       properties:
+        templateId:
+          type: integer
+          nullable: true
         title:
           type: string
         subtitle:
@@ -508,17 +469,21 @@ components:
         label:
           type: string
           nullable: true
-        templateId:
+        imageUrl:
+          type: string
           nullable: true
-          oneOf:
-            - type: string
-            - type: integer
+        logoUrl:
+          type: string
+          nullable: true
         aspectRatio:
           type: string
-        backgroundPhotoFilename:
+        bannerColor:
           type: string
           nullable: true
-        logoPhotoFilename:
+        textColor:
+          type: string
+          nullable: true
+        font:
           type: string
           nullable: true
       required: [title]
@@ -539,9 +504,6 @@ components:
           type: string
         aspectRatio:
           type: string
-        fileSize:
-          type: integer
-          nullable: true
         createdAt:
           type: string
           format: date-time

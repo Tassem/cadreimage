@@ -13,6 +13,5 @@ export interface GeneratedImage {
   title: string;
   imageUrl: string;
   aspectRatio: string;
-  fileSize?: number | null;
   createdAt: Date;
 }

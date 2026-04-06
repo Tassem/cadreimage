@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/pro/"
-title = "NewsCard Pro Dashboard"
+title = "News Card Generator Pro"
 version = "1.0.0"
 id = "artifacts/news-card-pro"
 router = "path"

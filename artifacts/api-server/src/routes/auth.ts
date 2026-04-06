@@ -1,47 +1,31 @@
-import { Router } from "express";
+import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db/schema";
+import { v4 as uuidv4 } from "uuid";
+import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { signToken, requireAuth, AuthRequest } from "../middlewares/auth";
+import { signToken, requireAuth, type AuthRequest } from "../middlewares/auth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
-import { randomBytes } from "crypto";
 
-const router = Router();
+const router: IRouter = Router();
 
-function generateApiKey(): string {
-  return "ncg_" + randomBytes(24).toString("hex");
-}
-
-function getDailyLimit(plan: string): number {
-  switch (plan) {
-    case "pro": return 500;
-    case "enterprise": return 9999;
-    default: return 20;
-  }
-}
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-router.post("/auth/register", async (req, res) => {
-  const parse = RegisterBody.safeParse(req.body);
-  if (!parse.success) {
-    res.status(400).json({ error: "Invalid input" });
+router.post("/auth/register", async (req, res): Promise<void> => {
+  const parsed = RegisterBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  const { name, email, password } = parse.data;
+  const { name, email, password } = parsed.data;
 
-  const existing = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
-  if (existing.length > 0) {
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  if (existing) {
     res.status(400).json({ error: "Email already registered" });
     return;
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const apiKey = generateApiKey();
+  const apiKey = `ncg_${uuidv4().replace(/-/g, "")}`;
+  const today = new Date().toISOString().slice(0, 10);
 
   const [user] = await db.insert(usersTable).values({
     name,
@@ -50,10 +34,11 @@ router.post("/auth/register", async (req, res) => {
     apiKey,
     plan: "free",
     imagesToday: 0,
-    lastResetDate: todayStr(),
+    lastResetDate: today,
   }).returning();
 
   const token = signToken(user.id);
+
   res.status(201).json({
     token,
     user: {
@@ -68,37 +53,28 @@ router.post("/auth/register", async (req, res) => {
   });
 });
 
-router.post("/auth/login", async (req, res) => {
-  const parse = LoginBody.safeParse(req.body);
-  if (!parse.success) {
-    res.status(400).json({ error: "Invalid input" });
+router.post("/auth/login", async (req, res): Promise<void> => {
+  const parsed = LoginBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  const { email, password } = parse.data;
-  const users = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
-  if (users.length === 0) {
-    res.status(401).json({ error: "Invalid credentials" });
+  const { email, password } = parsed.data;
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  if (!user) {
+    res.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
-  const user = users[0];
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
-    res.status(401).json({ error: "Invalid credentials" });
+    res.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
   const token = signToken(user.id);
-
-  // Reset daily counter if needed
-  const today = todayStr();
-  if (user.lastResetDate !== today) {
-    await db.update(usersTable)
-      .set({ imagesToday: 0, lastResetDate: today })
-      .where(eq(usersTable.id, user.id));
-    user.imagesToday = 0;
-  }
 
   res.json({
     token,
@@ -114,7 +90,7 @@ router.post("/auth/login", async (req, res) => {
   });
 });
 
-router.get("/auth/me", requireAuth, async (req: AuthRequest, res) => {
+router.get("/auth/me", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   const user = req.user!;
   res.json({
     id: user.id,
@@ -127,5 +103,12 @@ router.get("/auth/me", requireAuth, async (req: AuthRequest, res) => {
   });
 });
 
-export { getDailyLimit, todayStr, generateApiKey };
+// Regenerate API key
+router.post("/auth/regenerate-key", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+  const user = req.user!;
+  const newKey = `ncg_${uuidv4().replace(/-/g, "")}`;
+  await db.update(usersTable).set({ apiKey: newKey }).where(eq(usersTable.id, user.id));
+  res.json({ apiKey: newKey });
+});
+
 export default router;

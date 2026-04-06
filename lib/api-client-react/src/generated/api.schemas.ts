@@ -44,10 +44,8 @@ export interface Template {
   id: number;
   userId: number;
   name: string;
-  slug?: string | null;
   backgroundUrl?: string | null;
   logoUrl?: string | null;
-  overlayUrl?: string | null;
   elements: string;
   category: string;
   aspectRatio: string;
@@ -59,12 +57,6 @@ export interface Template {
   fontSize: number;
   fontWeight: number;
   photoHeight: number;
-  subtitle?: string | null;
-  label?: string | null;
-  logoText?: string | null;
-  logoPos: string;
-  logoInvert: boolean;
-  textShadow: boolean;
   isPublic: boolean;
   createdAt: string;
   updatedAt: string;
@@ -72,10 +64,8 @@ export interface Template {
 
 export interface CreateTemplateBody {
   name: string;
-  slug?: string | null;
   backgroundUrl?: string | null;
   logoUrl?: string | null;
-  overlayUrl?: string | null;
   elements?: string;
   category?: string;
   aspectRatio?: string;
@@ -87,23 +77,20 @@ export interface CreateTemplateBody {
   fontSize?: number;
   fontWeight?: number;
   photoHeight?: number;
-  subtitle?: string | null;
-  label?: string | null;
-  logoText?: string | null;
-  logoPos?: string;
-  logoInvert?: boolean;
-  textShadow?: boolean;
   isPublic?: boolean;
 }
 
 export interface GenerateBody {
+  templateId?: number | null;
   title: string;
   subtitle?: string | null;
   label?: string | null;
-  templateId?: string | number | null;
+  imageUrl?: string | null;
+  logoUrl?: string | null;
   aspectRatio?: string;
-  backgroundPhotoFilename?: string | null;
-  logoPhotoFilename?: string | null;
+  bannerColor?: string | null;
+  textColor?: string | null;
+  font?: string | null;
 }
 
 export interface GeneratedImage {
@@ -113,7 +100,6 @@ export interface GeneratedImage {
   title: string;
   imageUrl: string;
   aspectRatio: string;
-  fileSize?: number | null;
   createdAt: string;
 }
 

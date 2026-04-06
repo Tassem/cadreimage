@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "News Card Generator"
+title = "مولّد بطاقات الأخبار"
 version = "1.0.0"
 id = "artifacts/news-card-generator"
 router = "path"
