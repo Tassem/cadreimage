@@ -111,11 +111,20 @@ interface ApiTemplate {
   subtitle: string | null;
   label: string | null;
   logoText: string | null;
+  logoUrl: string | null;
   logoPos: string;
   logoInvert: boolean;
   textShadow: boolean;
   isPublic: boolean;
   createdAt: string;
+  headlineAlign?: string | null;
+  subtitleAlign?: string | null;
+  labelAlign?: string | null;
+  watermarkText?: string | null;
+  watermarkOpacity?: number | null;
+  showSubtitle?: boolean | null;
+  showLabel?: boolean | null;
+  useLogoText?: boolean | null;
 }
 
 function loadSaved() {
@@ -248,6 +257,68 @@ export default function Generate() {
   const overlayInputRef = useRef<HTMLInputElement>(null);
   const importRef       = useRef<HTMLInputElement>(null);
   const cardRef         = useRef<HTMLDivElement>(null);
+
+  // ── Load API template from ?templateId=<id> URL param ────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tplId = params.get("templateId");
+    if (!tplId) return;
+    const token = localStorage.getItem("pro_token");
+    fetch(`/api/templates/${tplId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((tpl: ApiTemplate | null) => {
+        if (!tpl) return;
+        // Apply all saved template settings to the generator state
+        if (tpl.aspectRatio && Object.keys(ASPECT_RATIOS).includes(tpl.aspectRatio))
+          setAspectRatio(tpl.aspectRatio as AspectRatio);
+        if (tpl.font)             setFont(tpl.font);
+        if (tpl.fontSize)         setFontSize(tpl.fontSize);
+        if (tpl.fontWeight)       setFontWeight(tpl.fontWeight);
+        if (typeof tpl.textShadow === "boolean") setTextShadow(tpl.textShadow);
+        setCustomBannerColor(tpl.bannerColor);
+        setCustomTextColor(tpl.textColor);
+        if (tpl.photoHeight)      setCustomPhotoHeight(tpl.photoHeight);
+        setSelectedTemplateId("custom");
+        if (tpl.logoPos && ["top-right","top-left","bottom-right","bottom-left"].includes(tpl.logoPos))
+          setLogoPos(tpl.logoPos as LogoPos);
+        if (typeof tpl.logoInvert === "boolean") setLogoInvert(tpl.logoInvert);
+        if (tpl.label != null)    { setLabel(tpl.label); setShowLabel(true); }
+        if (tpl.subtitle != null) { setSubtitle(tpl.subtitle); setShowSubtitle(true); }
+        if (tpl.showSubtitle != null) setShowSubtitle(!!tpl.showSubtitle);
+        if (tpl.showLabel    != null) setShowLabel(!!tpl.showLabel);
+        if (tpl.logoText != null) { setLogoText(tpl.logoText); }
+        if (tpl.useLogoText  != null) setUseLogoText(!!tpl.useLogoText);
+        if (tpl.headlineAlign && ["right","center","left"].includes(tpl.headlineAlign))
+          setHeadlineAlign(tpl.headlineAlign as "right"|"center"|"left");
+        if (tpl.subtitleAlign && ["right","center","left"].includes(tpl.subtitleAlign))
+          setSubtitleAlign(tpl.subtitleAlign as "right"|"center"|"left");
+        if (tpl.labelAlign && ["right","center","left"].includes(tpl.labelAlign))
+          setLabelAlign(tpl.labelAlign as "right"|"center"|"left");
+        if (tpl.watermarkText != null) setWatermarkText(tpl.watermarkText);
+        if (tpl.watermarkOpacity != null) setWatermarkOpacity(tpl.watermarkOpacity);
+        // Load logo from URL if present
+        if (tpl.logoUrl) {
+          const filename = tpl.logoUrl.split("/").pop() || "";
+          setLogoServerFilename(filename);
+          // Fetch as base64 for preview
+          fetch(tpl.logoUrl)
+            .then(r => r.blob())
+            .then(blob => {
+              const reader = new FileReader();
+              reader.onload = e => { if (e.target?.result) setLogoImage(e.target.result as string); };
+              reader.readAsDataURL(blob);
+            }).catch(() => {});
+        }
+        // Clean ?templateId from URL without reload
+        const url = new URL(window.location.href);
+        url.searchParams.delete("templateId");
+        window.history.replaceState({}, "", url.toString());
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Persist settings ─────────────────────────────────────────────────────
   useEffect(() => {

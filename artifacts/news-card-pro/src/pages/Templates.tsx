@@ -189,7 +189,7 @@ export default function Templates() {
                   className="w-full text-xs gap-1.5"
                   asChild
                 >
-                  <a href={`/pro/generate`} target="_blank" rel="noreferrer">
+                  <a href={`/pro/generate?templateId=${template.id}`} target="_blank" rel="noreferrer">
                     <ExternalLink className="h-3.5 w-3.5" />
                     فتح في المولّد
                   </a>
