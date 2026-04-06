@@ -103,6 +103,9 @@ interface SavedDesign {
     label: string;
     // logo image (base64) — saved so it reloads with the design
     logoImage: string | null;
+    // overlay image (base64) — saved so it reloads with the design
+    overlayImage: string | null;
+    overlayPhotoFilename: string | null;
     // Canvas free-positioning
     canvasMode: boolean;
     canvasLayout: CanvasLayout;
@@ -140,6 +143,7 @@ interface ApiTemplate {
   showLabel?: boolean | null;
   useLogoText?: boolean | null;
   canvasLayout?: CanvasLayout | null;
+  overlayUrl?: string | null;
 }
 
 function loadSaved() {
@@ -430,6 +434,7 @@ export default function Generate() {
       watermarkOpacity: String(watermarkOpacity),
       isPublic: false,
       canvasLayout: canvasMode ? canvasLayout : null,
+      overlayUrl: overlayServerFilename ? `/api/uploads/${overlayServerFilename}` : null,
     };
     try {
       let r: Response;
@@ -452,7 +457,7 @@ export default function Generate() {
         setApiTplName(""); setApiTplSlug(""); setEditingTplId(null);
       }
     } catch {} finally { setApiTplSaving(false); }
-  }, [apiTplName, apiTplSlug, aspectRatio, selectedTemplateId, customBannerColor, customTextColor, customPhotoHeight, font, fontSize, fontWeight, textShadow, subtitle, label, logoText, logoPos, logoInvert, showSubtitle, showLabel, useLogoText, headlineAlign, subtitleAlign, labelAlign, watermarkText, watermarkOpacity, editingTplId, fetchApiTemplates, canvasMode, canvasLayout]);
+  }, [apiTplName, apiTplSlug, aspectRatio, selectedTemplateId, customBannerColor, customTextColor, customPhotoHeight, font, fontSize, fontWeight, textShadow, subtitle, label, logoText, logoPos, logoInvert, showSubtitle, showLabel, useLogoText, headlineAlign, subtitleAlign, labelAlign, watermarkText, watermarkOpacity, editingTplId, fetchApiTemplates, canvasMode, canvasLayout, overlayServerFilename]);
 
   const handleDeleteApiTemplate = useCallback(async (id: number) => {
     if (!confirm("حذف هذا القالب؟")) return;
@@ -589,6 +594,9 @@ export default function Generate() {
       headline, subtitle, label,
       logoImage: logoImage ?? null,
       logoPhotoFilename: (!useLogoText && logoServerFilename) ? logoServerFilename : null,
+      // Overlay frame
+      overlayImage: overlayImage ?? null,
+      overlayPhotoFilename: overlayServerFilename || null,
       // Canvas free-positioning
       canvasMode,
       canvasLayout,
@@ -605,7 +613,7 @@ export default function Generate() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ name, settings: serverSettings }),
     }).catch(() => {});
-  }, [saveNameInput, selectedTemplateId, aspectRatio, font, fontSize, fontWeight, textShadow, logoPos, logoInvert, useLogoText, logoText, showSubtitle, showLabel, imgPositionX, imgPositionY, customBannerColor, customTextColor, customPhotoHeight, headline, subtitle, label, logoImage, logoServerFilename, canvasMode, canvasLayout]);
+  }, [saveNameInput, selectedTemplateId, aspectRatio, font, fontSize, fontWeight, textShadow, logoPos, logoInvert, useLogoText, logoText, showSubtitle, showLabel, imgPositionX, imgPositionY, customBannerColor, customTextColor, customPhotoHeight, headline, subtitle, label, logoImage, logoServerFilename, overlayImage, overlayServerFilename, canvasMode, canvasLayout]);
 
   const handleLoadDesign = useCallback((d: SavedDesign) => {
     const s = d.settings;
@@ -651,6 +659,29 @@ export default function Generate() {
       setLogoImage(null);
       setLogoFileName("");
       setLogoServerFilename("");
+    }
+    // Restore overlay image if saved
+    if (s.overlayImage) {
+      setOverlayImage(s.overlayImage);
+      setOverlayFileName("(محفوظ)");
+      if (s.overlayPhotoFilename) {
+        setOverlayServerFilename(s.overlayPhotoFilename);
+      } else {
+        const token = localStorage.getItem("pro_token");
+        fetch(s.overlayImage).then(r => r.blob()).then(blob => {
+          const fd = new FormData();
+          fd.append("photo", blob, "overlay.png");
+          return fetch("/api/photo/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+        }).then(r => r.json()).then(data => { if (data.filename) setOverlayServerFilename(data.filename); }).catch(() => {});
+      }
+    } else if (s.overlayPhotoFilename) {
+      setOverlayImage(null);
+      setOverlayFileName("(محفوظ على السيرفر)");
+      setOverlayServerFilename(s.overlayPhotoFilename);
+    } else {
+      setOverlayImage(null);
+      setOverlayFileName("");
+      setOverlayServerFilename("");
     }
     setActiveTab("content");
   }, []);
@@ -1084,7 +1115,7 @@ export default function Generate() {
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                             <span style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0" }}>{t.name}</span>
                             <div style={{ display: "flex", gap: "4px" }}>
-                              <button onClick={() => { setEditingTplId(t.id); setApiTplName(t.name); setApiTplSlug(t.slug ?? ""); setShowApiTemplateSave(true); if (t.canvasLayout) { setCanvasLayout(t.canvasLayout); setCanvasMode(true); } else { setCanvasMode(false); setCanvasLayout(CANVAS_DEFAULT); } }}
+                              <button onClick={() => { setEditingTplId(t.id); setApiTplName(t.name); setApiTplSlug(t.slug ?? ""); setShowApiTemplateSave(true); if (t.canvasLayout) { setCanvasLayout(t.canvasLayout); setCanvasMode(true); } else { setCanvasMode(false); setCanvasLayout(CANVAS_DEFAULT); } if (t.overlayUrl) { const fn = t.overlayUrl.split("/").pop() ?? ""; setOverlayServerFilename(fn); setOverlayImage(null); setOverlayFileName("(محفوظ على السيرفر)"); } else { setOverlayImage(null); setOverlayFileName(""); setOverlayServerFilename(""); } }}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #1e4080", borderRadius: "6px", cursor: "pointer" }}>تعديل</button>
                               <button onClick={() => handleDeleteApiTemplate(t.id)}
                                 style={{ padding: "3px 8px", fontSize: "11px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "6px", cursor: "pointer" }}>حذف</button>

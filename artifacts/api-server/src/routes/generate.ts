@@ -97,6 +97,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     labelAlign?: "right" | "center" | "left";
     watermarkText?: string | null;
     watermarkOpacity?: number;
+    overlayUrl?: string | null;
     canvasLayout?: Record<string, { x: number; y: number; w: number }> | null;
   };
   let templateOverrides: TemplateOverrides = {};
@@ -131,6 +132,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
       labelAlign:     toAlign(t.labelAlign),
       watermarkText:  t.watermarkText  ?? null,
       watermarkOpacity: t.watermarkOpacity ? Number(t.watermarkOpacity) : undefined,
+      overlayUrl:     t.overlayUrl     ?? null,
       canvasLayout: t.canvasLayout ? (() => { try { return JSON.parse(t.canvasLayout!); } catch { return null; } })() : null,
     };
   }
@@ -204,11 +206,14 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     logoImagePath = await downloadUrlToFile(String(rawBody.logoImageUrl), "logo");
   }
 
-  // Resolve custom overlay: file upload OR remote URL
+  // Resolve custom overlay: file upload OR remote URL OR template overlayUrl
   const overlayFilename = safeFilename(rawBody.overlayPhotoFilename);
   let overlayImagePath: string | null = overlayFilename ? `${path.resolve("uploads")}/${overlayFilename}` : null;
   if (!overlayImagePath && rawBody.overlayImageUrl) {
     overlayImagePath = await downloadUrlToFile(String(rawBody.overlayImageUrl), "overlay");
+  }
+  if (!overlayImagePath && templateOverrides.overlayUrl) {
+    overlayImagePath = await downloadUrlToFile(templateOverrides.overlayUrl, "overlay");
   }
 
   // Logo options: per-request overrides template defaults
