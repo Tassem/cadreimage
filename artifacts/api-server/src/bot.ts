@@ -9,6 +9,8 @@ import path from "path";
 import { logger } from "./lib/logger";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+// Active token — updated whenever a bot is started (handles DB-sourced tokens)
+let ACTIVE_TOKEN: string = BOT_TOKEN || "";
 
 const ASPECTS = ["1:1", "16:9", "4:5", "9:16"] as const;
 type Aspect = (typeof ASPECTS)[number];
@@ -178,9 +180,14 @@ async function downloadPhoto(bot: Telegraf, fileId: string): Promise<string> {
   await ensureUploadsDir();
   const fileInfo = await bot.telegram.getFile(fileId);
   const filePath = fileInfo.file_path!;
-  const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
+  // ACTIVE_TOKEN is updated on every bot start — safe even when token comes from DB
+  const activeToken = ACTIVE_TOKEN || BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
+  const url = `https://api.telegram.org/file/bot${activeToken}/${filePath}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to download photo");
+  if (!res.ok) {
+    logger.error({ status: res.status, url: url.replace(activeToken, "***") }, "Failed to download Telegram photo");
+    throw new Error(`Failed to download photo: ${res.status}`);
+  }
   const buffer = Buffer.from(await res.arrayBuffer());
   const { v4: uuidv4 } = await import("uuid");
   const ext = path.extname(filePath) || ".jpg";
@@ -639,7 +646,9 @@ let runningBot: Telegraf | null = null;
 
 export async function startBot(): Promise<void> {
   await ensureUploadsDir();
-  runningBot = createBot();
+  const t = BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
+  if (t) ACTIVE_TOKEN = t;
+  runningBot = createBot(t || undefined);
   logger.info("Starting Telegram bot...");
   runningBot.launch();
   logger.info("Telegram bot launched (long polling)");
@@ -649,6 +658,7 @@ export async function startBot(): Promise<void> {
 
 export async function startBotWithToken(token: string): Promise<void> {
   await ensureUploadsDir();
+  ACTIVE_TOKEN = token;
   // Stop current running bot if any
   if (runningBot) {
     try { runningBot.stop("restart"); } catch {}
