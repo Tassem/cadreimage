@@ -23,6 +23,17 @@ export interface Template {
   fontSize: number;
   fontWeight: number;
   photoHeight: number;
+  subtitle?: string | null;
+  label?: string | null;
+  logoText?: string | null;
+  logoPos: string;
+  logoInvert: boolean;
+  textShadow: boolean;
+  headlineAlign: string;
+  subtitleAlign: string;
+  labelAlign: string;
+  watermarkText?: string | null;
+  watermarkOpacity: string;
   isPublic: boolean;
   createdAt: Date;
   updatedAt: Date;

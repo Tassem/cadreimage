@@ -48,6 +48,11 @@ router.post("/templates", requireAuth, async (req: AuthRequest, res): Promise<vo
     logoPos: d.logoPos ?? "top-right",
     logoInvert: d.logoInvert ?? false,
     textShadow: d.textShadow ?? false,
+    headlineAlign: d.headlineAlign ?? "right",
+    subtitleAlign: d.subtitleAlign ?? "right",
+    labelAlign: d.labelAlign ?? "right",
+    watermarkText: d.watermarkText ?? null,
+    watermarkOpacity: d.watermarkOpacity ?? "0.18",
     isPublic: d.isPublic ?? false,
   }).returning();
 
@@ -116,6 +121,11 @@ router.put("/templates/:id", requireAuth, async (req: AuthRequest, res): Promise
       ...(d.logoPos !== undefined  && { logoPos: d.logoPos }),
       ...(d.logoInvert !== undefined && { logoInvert: d.logoInvert }),
       ...(d.textShadow !== undefined && { textShadow: d.textShadow }),
+      ...(d.headlineAlign !== undefined && { headlineAlign: d.headlineAlign }),
+      ...(d.subtitleAlign !== undefined && { subtitleAlign: d.subtitleAlign }),
+      ...(d.labelAlign !== undefined && { labelAlign: d.labelAlign }),
+      ...(d.watermarkText !== undefined && { watermarkText: d.watermarkText }),
+      ...(d.watermarkOpacity !== undefined && { watermarkOpacity: d.watermarkOpacity }),
       ...(d.isPublic !== undefined && { isPublic: d.isPublic }),
     })
     .where(and(

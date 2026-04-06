@@ -92,29 +92,44 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     logoPos?: string;
     logoInvert?: boolean;
     textShadow?: boolean;
+    headlineAlign?: "right" | "center" | "left";
+    subtitleAlign?: "right" | "center" | "left";
+    labelAlign?: "right" | "center" | "left";
+    watermarkText?: string | null;
+    watermarkOpacity?: number;
   };
   let templateOverrides: TemplateOverrides = {};
 
   // Import BUILT_IN_TEMPLATES for validation
   const { BUILT_IN_TEMPLATES } = await import("../lib/imageGenerator");
 
+  const toAlign = (v: unknown): "right" | "center" | "left" | undefined => {
+    if (v === "right" || v === "center" || v === "left") return v as "right" | "center" | "left";
+    return undefined;
+  };
+
   /** Extract all override fields from a DB template row */
   function extractOverrides(t: typeof templatesTable.$inferSelect): TemplateOverrides {
     return {
-      bannerColor: t.bannerColor ?? undefined,
-      textColor:   t.textColor   ?? undefined,
-      labelColor:  t.labelColor  ?? undefined,
-      font:        t.font        ?? undefined,
-      fontSize:    t.fontSize    ?? undefined,
-      fontWeight:  t.fontWeight  ?? undefined,
-      photoHeight: t.photoHeight ?? undefined,
-      subtitle:    t.subtitle    ?? null,
-      label:       t.label       ?? null,
-      logoUrl:     t.logoUrl     ?? null,
-      logoText:    t.logoText    ?? null,
-      logoPos:     t.logoPos     ?? "top-right",
-      logoInvert:  t.logoInvert  ?? false,
-      textShadow:  t.textShadow  ?? false,
+      bannerColor:    t.bannerColor    ?? undefined,
+      textColor:      t.textColor      ?? undefined,
+      labelColor:     t.labelColor     ?? undefined,
+      font:           t.font           ?? undefined,
+      fontSize:       t.fontSize       ?? undefined,
+      fontWeight:     t.fontWeight     ?? undefined,
+      photoHeight:    t.photoHeight    ?? undefined,
+      subtitle:       t.subtitle       ?? null,
+      label:          t.label          ?? null,
+      logoUrl:        t.logoUrl        ?? null,
+      logoText:       t.logoText       ?? null,
+      logoPos:        t.logoPos        ?? "top-right",
+      logoInvert:     t.logoInvert     ?? false,
+      textShadow:     t.textShadow     ?? false,
+      headlineAlign:  toAlign(t.headlineAlign),
+      subtitleAlign:  toAlign(t.subtitleAlign),
+      labelAlign:     toAlign(t.labelAlign),
+      watermarkText:  t.watermarkText  ?? null,
+      watermarkOpacity: t.watermarkOpacity ? Number(t.watermarkOpacity) : undefined,
     };
   }
 
@@ -230,18 +245,18 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     if (downloaded) logoImagePath = downloaded;
   }
 
-  // Text alignment
-  const toAlign = (v: unknown): "right" | "center" | "left" | undefined => {
-    if (v === "right" || v === "center" || v === "left") return v as "right" | "center" | "left";
-    return undefined;
-  };
-  const headlineAlign = toAlign(rawBody.headlineAlign);
-  const subtitleAlign = toAlign(rawBody.subtitleAlign);
-  const labelAlign    = toAlign(rawBody.labelAlign);
+  // Text alignment: per-request overrides template defaults
+  const headlineAlign = toAlign(rawBody.headlineAlign) ?? templateOverrides.headlineAlign;
+  const subtitleAlign = toAlign(rawBody.subtitleAlign) ?? templateOverrides.subtitleAlign;
+  const labelAlign    = toAlign(rawBody.labelAlign)    ?? templateOverrides.labelAlign;
 
-  // Watermark
-  const watermarkText    = rawBody.watermarkText ? String(rawBody.watermarkText).slice(0, 80) : null;
-  const watermarkOpacity = rawBody.watermarkOpacity !== undefined ? Number(rawBody.watermarkOpacity) : undefined;
+  // Watermark: per-request overrides template defaults
+  const watermarkText = rawBody.watermarkText
+    ? String(rawBody.watermarkText).slice(0, 80)
+    : (templateOverrides.watermarkText ?? null);
+  const watermarkOpacity = rawBody.watermarkOpacity !== undefined
+    ? Number(rawBody.watermarkOpacity)
+    : templateOverrides.watermarkOpacity;
 
   // Generate image
   const { fileName, fileSize } = await generateCard({

@@ -330,6 +330,11 @@ export default function Generate() {
       logoPos,
       logoInvert,
       textShadow,
+      headlineAlign,
+      subtitleAlign,
+      labelAlign,
+      watermarkText: watermarkText || null,
+      watermarkOpacity: String(watermarkOpacity),
       isPublic: false,
     };
     try {
@@ -353,7 +358,7 @@ export default function Generate() {
         setApiTplName(""); setApiTplSlug(""); setEditingTplId(null);
       }
     } catch {} finally { setApiTplSaving(false); }
-  }, [apiTplName, apiTplSlug, aspectRatio, selectedTemplateId, customBannerColor, customTextColor, customPhotoHeight, font, fontSize, fontWeight, textShadow, subtitle, label, logoText, logoPos, logoInvert, showSubtitle, showLabel, useLogoText, editingTplId, fetchApiTemplates]);
+  }, [apiTplName, apiTplSlug, aspectRatio, selectedTemplateId, customBannerColor, customTextColor, customPhotoHeight, font, fontSize, fontWeight, textShadow, subtitle, label, logoText, logoPos, logoInvert, showSubtitle, showLabel, useLogoText, headlineAlign, subtitleAlign, labelAlign, watermarkText, watermarkOpacity, editingTplId, fetchApiTemplates]);
 
   const handleDeleteApiTemplate = useCallback(async (id: number) => {
     if (!confirm("حذف هذا القالب؟")) return;
