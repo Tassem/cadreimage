@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Image as ImageIcon, LayoutTemplate, Zap, ArrowRight, Download } from "lucide-react";
+import { Image as ImageIcon, LayoutTemplate, Zap, ArrowRight, Download, PenTool, Settings } from "lucide-react";
 
 export default function Dashboard() {
   const { token } = useAuth();
