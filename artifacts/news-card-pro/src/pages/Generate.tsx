@@ -925,13 +925,23 @@ export default function Generate() {
               <>
                 {/* Background photo */}
                 <div style={SECTION}>
-                  <p style={SL}>صورة الخلفية</p>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <p style={{ ...SL, marginBottom: 0 }}>صورة الخلفية</p>
+                    {bgImage && (
+                      <button
+                        onClick={() => setCustomPhotoHeight(customPhotoHeight === 100 ? 62 : 100)}
+                        style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "none", cursor: "pointer", background: customPhotoHeight === 100 ? "#a855f7" : "#1e293b", color: customPhotoHeight === 100 ? "#ffffff" : "#94a3b8", fontFamily: "'Cairo', sans-serif", fontWeight: customPhotoHeight === 100 ? 700 : 400, transition: "all 0.2s" }}
+                      >{customPhotoHeight === 100 ? "✓ خلفية كاملة" : "خلفية كاملة"}</button>
+                    )}
+                  </div>
                   <button onClick={() => bgInputRef.current?.click()} style={{ width: "100%", padding: "10px", background: "#0f172a", border: "1px dashed #334155", borderRadius: "8px", color: bgFileName ? "#22c55e" : "#94a3b8", cursor: "pointer", fontSize: "13px", fontFamily: "'Cairo', sans-serif", textAlign: "right" }}>
                     {bgFileName ? `✅ ${bgFileName}` : "📁 رفع صورة الخلفية"}
                   </button>
                   <input ref={bgInputRef} type="file" accept="image/*" onChange={handleBgUpload} style={{ display: "none" }} />
                   {bgImage && (
-                    <button onClick={() => { setBgImage(null); setBgFileName(""); setBgFile(null); setBgServerFilename(""); }} style={{ marginTop: "6px", fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontFamily: "'Cairo', sans-serif" }}>× حذف الصورة</button>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px" }}>
+                      <button onClick={() => { setBgImage(null); setBgFileName(""); setBgFile(null); setBgServerFilename(""); }} style={{ fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontFamily: "'Cairo', sans-serif" }}>× حذف الصورة</button>
+                    </div>
                   )}
                 </div>
 
