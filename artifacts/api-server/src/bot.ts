@@ -1,7 +1,7 @@
 import { Telegraf } from "telegraf";
 import { message } from "telegraf/filters";
-import { db, usersTable, generatedImagesTable, userSavedDesignsTable } from "@workspace/db";
-import { eq, ilike } from "drizzle-orm";
+import { db, usersTable, generatedImagesTable, userSavedDesignsTable, templatesTable } from "@workspace/db";
+import { eq, ilike, or } from "drizzle-orm";
 import { generateCard } from "./lib/imageGenerator";
 import { ensureUploadsDir } from "./lib/imageGenerator";
 import fs from "fs/promises";
@@ -69,19 +69,42 @@ function resolveTemplate(input: string): string {
   return TEMPLATE_ALIASES[key] || TEMPLATE_ALIASES[input.trim()] || "classic-blue";
 }
 
-// ── Resolve template (built-in alias OR user saved design from DB) ────────────
-async function resolveTemplateSettings(
-  nameRaw: string
-): Promise<{ templateId: string; designSettings?: Record<string, unknown>; displayName: string }> {
+// ── Resolve template: built-in alias → API templates (templatesTable) → user saved designs ──
+interface ResolvedTemplate {
+  templateId: string;
+  displayName: string;
+  designSettings?: Record<string, unknown>;
+  apiTemplate?: typeof templatesTable.$inferSelect;
+}
+
+async function resolveTemplateSettings(nameRaw: string): Promise<ResolvedTemplate> {
   const key = nameRaw.trim().toLowerCase();
+
+  // 1) Built-in alias
   const builtIn = TEMPLATE_ALIASES[key] || TEMPLATE_ALIASES[nameRaw.trim()];
   if (builtIn) return { templateId: builtIn, displayName: builtIn };
 
-  // Look up in user_saved_designs by name (case-insensitive, first match)
+  // 2) API templates table — search by slug or name (case-insensitive)
+  const trim = nameRaw.trim();
+  const apiCandidates = await db
+    .select()
+    .from(templatesTable)
+    .where(or(
+      ilike(templatesTable.slug, trim),
+      ilike(templatesTable.name, trim)
+    ))
+    .limit(5);
+
+  const apiTpl = apiCandidates[0];
+  if (apiTpl) {
+    return { templateId: apiTpl.id.toString(), displayName: apiTpl.name, apiTemplate: apiTpl };
+  }
+
+  // 3) user_saved_designs by name (case-insensitive, first match)
   const [found] = await db
     .select()
     .from(userSavedDesignsTable)
-    .where(ilike(userSavedDesignsTable.name, nameRaw.trim()))
+    .where(ilike(userSavedDesignsTable.name, trim))
     .limit(1);
 
   if (found) {
@@ -98,6 +121,7 @@ interface PendingCard {
   templateId: string;
   aspect: Aspect;
   label?: string;
+  subtitle?: string;
   customBannerColor?: string;
   customTextColor?: string;
   customPhotoHeight?: number;
@@ -112,7 +136,13 @@ interface PendingCard {
   imgPositionX?: number;
   imgPositionY?: number;
   textShadow?: boolean;
+  headlineAlign?: "right" | "center" | "left";
+  subtitleAlign?: "right" | "center" | "left";
+  labelAlign?: "right" | "center" | "left";
+  watermarkText?: string | null;
+  watermarkOpacity?: number;
   designName?: string;
+  logoUrl?: string | null;
 }
 
 interface Session {
@@ -160,6 +190,26 @@ async function downloadPhoto(bot: Telegraf, fileId: string): Promise<string> {
   return localPath;
 }
 
+// ── Download URL to local file ────────────────────────────────────────────────
+async function downloadUrlToFile(url: string, suffix: string): Promise<string | null> {
+  try {
+    const urlObj = new URL(url);
+    if (!["http:", "https:"].includes(urlObj.protocol)) return null;
+    await ensureUploadsDir();
+    const ext = (urlObj.pathname.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").slice(0, 6) || "jpg";
+    const { v4: uuidv4 } = await import("uuid");
+    const localPath = path.join(UPLOADS_DIR, `url_${uuidv4()}_${suffix}.${ext}`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try { res = await fetch(url, { signal: controller.signal }); } finally { clearTimeout(timer); }
+    if (!res.ok || !res.body) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    await fs.writeFile(localPath, buffer);
+    return localPath;
+  } catch { return null; }
+}
+
 // ── Generate and reply ────────────────────────────────────────────────────────
 async function doGenerate(
   ctx: any,
@@ -176,30 +226,49 @@ async function doGenerate(
   const waitMsg = await ctx.reply("⏳ جاري توليد البطاقة...");
 
   try {
-    // Resolve logo path if saved design has a logo filename
-    const logoImagePath = card.logoPhotoFilename && !card.useLogoText
-      ? path.join(UPLOADS_DIR, card.logoPhotoFilename)
-      : null;
+    // Resolve logo: local filename → URL → null
+    let logoImagePath: string | null = null;
+    if (!card.useLogoText) {
+      if (card.logoPhotoFilename) {
+        logoImagePath = path.join(UPLOADS_DIR, card.logoPhotoFilename);
+      } else if (card.logoUrl) {
+        // API template logo URL (possibly relative /api/uploads/…)
+        const logoFullUrl = card.logoUrl.startsWith("/")
+          ? `http://localhost:8080${card.logoUrl}`
+          : card.logoUrl;
+        logoImagePath = await downloadUrlToFile(logoFullUrl, "logo");
+      }
+    }
+
+    // For API templates the templateId may be a numeric string; use "classic-blue" as base
+    // All colors are passed explicitly via bannerColor/textColor overrides
+    const resolvedId = isNaN(Number(card.templateId)) ? card.templateId : "classic-blue";
 
     const { filePath, fileName, fileSize } = await generateCard({
-      title: card.title,
-      aspectRatio: card.aspect,
-      templateId: card.templateId,
-      label: card.label ?? null,
+      title:              card.title,
+      subtitle:           card.subtitle ?? null,
+      aspectRatio:        card.aspect,
+      templateId:         resolvedId,
+      label:              card.label ?? null,
       backgroundImagePath: backgroundImagePath ?? null,
-      bannerColor: card.customBannerColor,
-      textColor: card.customTextColor,
-      photoHeight: card.customPhotoHeight,
-      fontSize: card.fontSize,
-      fontWeight: card.fontWeight,
-      font: card.font,
+      bannerColor:        card.customBannerColor,
+      textColor:          card.customTextColor,
+      photoHeight:        card.customPhotoHeight,
+      fontSize:           card.fontSize,
+      fontWeight:         card.fontWeight,
+      font:               card.font,
       logoImagePath,
-      logoText: card.useLogoText ? (card.logoText ?? null) : null,
-      logoPos: card.logoPos ?? null,
-      logoInvert: card.logoInvert ?? false,
-      imgPositionX: card.imgPositionX ?? 50,
-      imgPositionY: card.imgPositionY ?? 50,
-      textShadow: card.textShadow ?? false,
+      logoText:           card.useLogoText ? (card.logoText ?? null) : null,
+      logoPos:            card.logoPos ?? null,
+      logoInvert:         card.logoInvert ?? false,
+      imgPositionX:       card.imgPositionX ?? 50,
+      imgPositionY:       card.imgPositionY ?? 50,
+      textShadow:         card.textShadow ?? false,
+      headlineAlign:      card.headlineAlign,
+      subtitleAlign:      card.subtitleAlign,
+      labelAlign:         card.labelAlign,
+      watermarkText:      card.watermarkText ?? null,
+      watermarkOpacity:   card.watermarkOpacity,
     });
 
     const imageUrl = `/api/uploads/${fileName}`;
@@ -258,36 +327,83 @@ function parseFormatMessage(text: string): ParsedMessage | null {
   return { templateNameRaw, title, aspect, label };
 }
 
+const toAlign = (v: unknown): "right" | "center" | "left" | undefined => {
+  if (v === "right" || v === "center" || v === "left") return v;
+  return undefined;
+};
+
 async function buildPendingCard(parsed: ParsedMessage): Promise<PendingCard> {
-  const { templateId, designSettings, displayName } = await resolveTemplateSettings(parsed.templateNameRaw);
+  const { templateId, designSettings, displayName, apiTemplate } = await resolveTemplateSettings(parsed.templateNameRaw);
   const s = designSettings;
   const str  = (v: unknown, fallback?: string) => (v != null && String(v)) ? String(v) : fallback;
   const num  = (v: unknown) => v != null && !isNaN(Number(v)) ? Number(v) : undefined;
   const bool = (v: unknown) => v != null ? Boolean(v) : undefined;
 
+  // If resolved to an API template row, extract all fields from it directly
+  if (apiTemplate) {
+    const t = apiTemplate;
+    return {
+      title:             parsed.title,
+      templateId:        t.id.toString(),
+      aspect:            parsed.aspect,
+      designName:        t.name,
+      // text content (override from message, else template default)
+      label:             parsed.label ?? t.label ?? undefined,
+      subtitle:          t.subtitle ?? undefined,
+      // typography
+      font:              t.font,
+      fontSize:          t.fontSize,
+      fontWeight:        t.fontWeight,
+      textShadow:        t.textShadow,
+      // colors / layout
+      customBannerColor: t.bannerColor,
+      customTextColor:   t.textColor,
+      customPhotoHeight: t.photoHeight,
+      imgPositionX:      50,
+      imgPositionY:      50,
+      // logo
+      logoUrl:           t.logoUrl ?? null,
+      logoText:          t.logoText ?? undefined,
+      useLogoText:       !!(t.logoText && !t.logoUrl),
+      logoPos:           t.logoPos,
+      logoInvert:        t.logoInvert,
+      // alignment (new)
+      headlineAlign:     toAlign(t.headlineAlign),
+      subtitleAlign:     toAlign(t.subtitleAlign),
+      labelAlign:        toAlign(t.labelAlign),
+      // watermark (new)
+      watermarkText:     t.watermarkText ?? null,
+      watermarkOpacity:  t.watermarkOpacity ? Number(t.watermarkOpacity) : undefined,
+    };
+  }
+
+  // Legacy: user saved design settings (JSON blob)
   return {
-    title: parsed.title,
+    title:             parsed.title,
     templateId,
-    aspect: parsed.aspect,
-    designName: displayName,
-    // text settings
-    label:            parsed.label ?? str(s?.label),
-    font:             str(s?.font, "Cairo"),
-    fontSize:         num(s?.fontSize),
-    fontWeight:       num(s?.fontWeight),
-    textShadow:       bool(s?.textShadow),
-    // colors / layout
+    aspect:            parsed.aspect,
+    designName:        displayName,
+    label:             parsed.label ?? str(s?.label),
+    subtitle:          str(s?.subtitle),
+    font:              str(s?.font, "Cairo"),
+    fontSize:          num(s?.fontSize),
+    fontWeight:        num(s?.fontWeight),
+    textShadow:        bool(s?.textShadow),
     customBannerColor: str(s?.customBannerColor),
     customTextColor:   str(s?.customTextColor),
     customPhotoHeight: num(s?.customPhotoHeight),
     imgPositionX:      num(s?.imgPositionX),
     imgPositionY:      num(s?.imgPositionY),
-    // logo
     logoPhotoFilename: str(s?.logoPhotoFilename),
     logoText:          str(s?.logoText),
     useLogoText:       bool(s?.useLogoText),
     logoPos:           str(s?.logoPos),
     logoInvert:        bool(s?.logoInvert),
+    headlineAlign:     toAlign(s?.headlineAlign),
+    subtitleAlign:     toAlign(s?.subtitleAlign),
+    labelAlign:        toAlign(s?.labelAlign),
+    watermarkText:     s?.watermarkText ? String(s.watermarkText) : null,
+    watermarkOpacity:  num(s?.watermarkOpacity),
   };
 }
 
