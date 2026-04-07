@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: newscard
+      POSTGRES_USER: newscard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newscard"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://newscard:${POSTGRES_PASSWORD:-changeme}@postgres:5432/newscard
+      SESSION_SECRET: ${SESSION_SECRET:-super-secret-change-me}
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+      CHROMIUM_PATH: /usr/bin/chromium-browser
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/artifacts/api-server/uploads
+
+  frontend-generator:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./artifacts/news-card-generator/dist/public:/usr/share/nginx/html/public:ro
+      - ./nginx/generator.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  frontend-pro:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./artifacts/news-card-pro/dist/public:/usr/share/nginx/html/public:ro
+      - ./nginx/pro.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "3001:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  uploads:

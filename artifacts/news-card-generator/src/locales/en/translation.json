@@ -1,0 +1,138 @@
+{
+  "nav": {
+    "features": "Features",
+    "howItWorks": "How It Works",
+    "pricing": "Pricing",
+    "faq": "FAQ",
+    "tryFree": "Try Free",
+    "dashboard": "Dashboard"
+  },
+  "hero": {
+    "badge": "🚀 The first Arabic news card platform",
+    "title": "Create professional",
+    "titleAccent": "Arabic news cards",
+    "titleEnd": "in seconds",
+    "subtitle": "A complete platform for generating Arabic news cards — broadcast quality — for media organizations and journalists.",
+    "cta": "Start for Free",
+    "ctaSub": "No credit card required",
+    "proLink": "Already subscribed? Go to Dashboard",
+    "stat1": "cards generated",
+    "stat2": "ready templates",
+    "stat3": "ready to publish"
+  },
+  "features": {
+    "title": "Everything you need in one place",
+    "subtitle": "Built for Arabic media organizations that want quality and speed",
+    "item1": {
+      "title": "Instant AI Generation",
+      "desc": "Enter the headline and image, get a professional card ready to publish in seconds."
+    },
+    "item2": {
+      "title": "20+ Ready Templates",
+      "desc": "Breaking news, sports, economy, culture — in your brand colors."
+    },
+    "item3": {
+      "title": "Smart Telegram Bot",
+      "desc": "Send a news item to the bot, it generates the card and sends it directly to your channel."
+    },
+    "item4": {
+      "title": "Full Customization",
+      "desc": "Your logo, colors, fonts, multiple aspect ratios: square, story, landscape."
+    },
+    "item5": {
+      "title": "Advanced Canvas System",
+      "desc": "Position elements freely over the background image, like a professional design tool."
+    },
+    "item6": {
+      "title": "API Ready to Integrate",
+      "desc": "Connect your system to the API and generate cards automatically from your news CMS."
+    }
+  },
+  "howItWorks": {
+    "title": "How does it work?",
+    "subtitle": "Just three steps to a professional news card",
+    "step1": {
+      "title": "Choose a Template",
+      "desc": "From 20+ ready templates or customize with your colors and logo."
+    },
+    "step2": {
+      "title": "Enter Content",
+      "desc": "Headline, background image, logo — all in 30 seconds."
+    },
+    "step3": {
+      "title": "Download and Publish",
+      "desc": "1080px card ready for all platforms."
+    }
+  },
+  "pricing": {
+    "title": "Choose Your Plan",
+    "subtitle": "Start free, scale as you grow",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "save": "Save 20%",
+    "popular": "Most Popular",
+    "cta": "Get Started",
+    "ctaPro": "Try Pro",
+    "free": {
+      "name": "Free",
+      "price": "0",
+      "desc": "For beginners and testing",
+      "f1": "5 cards per day",
+      "f2": "3 templates",
+      "f3": "Basic formats",
+      "f4": "PNG download"
+    },
+    "basic": {
+      "name": "Basic",
+      "price": "9",
+      "priceYear": "7",
+      "desc": "For independent journalists",
+      "f1": "50 cards per day",
+      "f2": "All templates",
+      "f3": "Logo & branding",
+      "f4": "Limited API",
+      "f5": "Telegram bot"
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "29",
+      "priceYear": "23",
+      "desc": "For professional media",
+      "f1": "Unlimited cards",
+      "f2": "Advanced Canvas",
+      "f3": "Unlimited API",
+      "f4": "Multi Telegram bots",
+      "f5": "Custom templates",
+      "f6": "Priority support 24/7"
+    },
+    "currency": "$"
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "subtitle": "Everything you need to know",
+    "q1": "Does the platform fully support Arabic?",
+    "a1": "Yes, the platform is built natively for Arabic: fonts, RTL direction, and design — everything is optimized.",
+    "q2": "Do I need technical knowledge to use the platform?",
+    "a2": "Not at all. The interface is designed to be very simple — in 3 steps you get your card.",
+    "q3": "What format are the generated images?",
+    "a3": "PNG at 1080×1080 (or the selected ratio) — ready to publish immediately.",
+    "q4": "Can I use my organization's logo?",
+    "a4": "Yes, you can upload your logo and set its position. In paid plans, it's automatically saved with each template.",
+    "q5": "How does the Telegram bot work?",
+    "a5": "You connect the bot to your account, send the article text with the image — the bot generates the card and sends it directly to your channel.",
+    "q6": "Can I cancel at any time?",
+    "a6": "Yes, you can cancel your subscription at any time with no additional charges."
+  },
+  "footer": {
+    "desc": "Arabic news card generator — broadcast quality in seconds.",
+    "product": "Product",
+    "tool": "Free Tool",
+    "dashboard": "Dashboard",
+    "pricing": "Pricing",
+    "company": "Company",
+    "about": "About",
+    "contact": "Contact",
+    "rights": "All rights reserved",
+    "lang": "Language"
+  }
+}

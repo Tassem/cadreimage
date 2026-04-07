@@ -12,10 +12,21 @@ News Card Generator Pro allows Arabic media outlets and journalists to instantly
 
 ---
 
+## 🆕 What's New (Latest Version)
+
+- **Professional Landing Page** — Multilingual SaaS landing page at `/` with Hero, Features, How It Works, Pricing Plans, FAQ, and Footer
+- **i18n Support** — Arabic (RTL) 🇲🇦 · Français 🇫🇷 · English 🇺🇸 with language switcher + localStorage persistence
+- **Subscription Plans** — Free / Basic / Pro plans UI (mock, ready for Stripe integration)
+- **Docker Support** — `Dockerfile` + `docker-compose.yml` — run everything with one command
+- **Full Background Mode** — `photoHeight: 100` fills the entire card with the photo; canvas elements overlay on top
+
+---
+
 ## ⚙️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
+| Landing Page | React 18 + Vite + Framer Motion + i18next |
 | Frontend (Free Tool) | React 18 + Vite + TypeScript |
 | Frontend (Pro Dashboard) | React 18 + Vite + Wouter (SPA routing) |
 | Backend API | Express 5 + TypeScript |
@@ -26,6 +37,8 @@ News Card Generator Pro allows Arabic media outlets and journalists to instantly
 | Monorepo | pnpm workspaces |
 | Telegram Bot | Telegraf.js v4 |
 | Validation | Zod |
+| i18n | react-i18next + i18next |
+| Containerization | Docker + Docker Compose + Nginx |
 
 ---
 
@@ -106,6 +119,98 @@ Edit:
   → handleEditApiTemplate(t) applies ALL template fields to UI state
   → fontSize, font, bannerColor, canvasLayout, overlayUrl, logoPos, etc.
 ```
+
+---
+
+## 🐳 Docker — Run with One Command
+
+### Requirements
+- Docker ≥ 24
+- Docker Compose ≥ 2
+
+### Quick Start
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/Tassem/newproject.git
+cd newproject
+
+# 2. Copy environment file
+cp .env.example .env
+# Edit .env and set a strong SESSION_SECRET and POSTGRES_PASSWORD
+
+# 3. Start everything
+docker-compose up -d
+
+# Services:
+#   Free Tool Landing Page  →  http://localhost:3000
+#   Pro Dashboard           →  http://localhost:3001/pro/
+#   API Server              →  http://localhost:8080/api/
+#   PostgreSQL              →  localhost:5432
+```
+
+### Architecture (Docker)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     docker-compose                           │
+│                                                             │
+│  ┌──────────────────┐  ┌──────────────────┐                 │
+│  │ nginx (generator)│  │  nginx (pro)      │                 │
+│  │ :3000            │  │  :3001            │                 │
+│  └────────┬─────────┘  └────────┬──────────┘                │
+│           │                     │                            │
+│           └──────────┬──────────┘                            │
+│                      ▼                                       │
+│             ┌─────────────────┐                              │
+│             │   API Server    │                              │
+│             │   :8080         │                              │
+│             └────────┬────────┘                              │
+│                      │                                       │
+│             ┌────────▼────────┐                              │
+│             │   PostgreSQL    │                              │
+│             │   :5432         │                              │
+│             └─────────────────┘                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string |
+| `POSTGRES_PASSWORD` | ✅ | DB password (used in docker-compose) |
+| `SESSION_SECRET` | ✅ | JWT signing secret (min 32 chars) |
+| `BASE_URL` | ✅ | Public URL of the API server |
+| `TELEGRAM_BOT_TOKEN` | ❌ | Telegram bot (configured per-user in Pro) |
+
+---
+
+## 🌍 Multilingual Support (i18n)
+
+The landing page supports 3 languages with full RTL support for Arabic:
+
+| Language | Code | Direction |
+|----------|------|-----------|
+| العربية | `ar` | RTL ← |
+| Français | `fr` | LTR → |
+| English | `en` | LTR → |
+
+- Language preference saved in `localStorage` (`ncg-lang`)
+- Language switcher available in navbar and footer
+- Arabic is the **default language**
+
+---
+
+## 💰 Subscription Plans
+
+| Plan | Cards/day | Templates | API | Bot | Canvas |
+|------|-----------|-----------|-----|-----|--------|
+| **Free** | 5 | 3 | ❌ | ❌ | Basic |
+| **Basic** | 50 | All | Limited | ✅ | Standard |
+| **Pro** | Unlimited | All + Custom | Unlimited | Multi | Advanced |
+
+> Payment integration is ready for Stripe — currently in mock mode.
 
 ---
 

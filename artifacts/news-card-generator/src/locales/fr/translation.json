@@ -1,0 +1,138 @@
+{
+  "nav": {
+    "features": "Fonctionnalités",
+    "howItWorks": "Comment ça marche",
+    "pricing": "Tarifs",
+    "faq": "FAQ",
+    "tryFree": "Essai gratuit",
+    "dashboard": "Tableau de bord"
+  },
+  "hero": {
+    "badge": "🚀 Le premier outil arabe de ce type",
+    "title": "Créez des cartes d'actualités",
+    "titleAccent": "professionnelles",
+    "titleEnd": "en quelques secondes",
+    "subtitle": "Plateforme complète de génération de cartes d'actualités en arabe — qualité broadcast — pour les médias et journalistes.",
+    "cta": "Commencer gratuitement",
+    "ctaSub": "Aucune carte de crédit requise",
+    "proLink": "Déjà abonné ? Accéder au tableau de bord",
+    "stat1": "cartes générées",
+    "stat2": "modèles prêts",
+    "stat3": "prêt à publier"
+  },
+  "features": {
+    "title": "Tout ce dont vous avez besoin",
+    "subtitle": "Conçu pour les médias arabes qui veulent qualité et rapidité",
+    "item1": {
+      "title": "Génération instantanée",
+      "desc": "Entrez le titre et l'image, obtenez une carte professionnelle prête à publier en quelques secondes."
+    },
+    "item2": {
+      "title": "+20 modèles prêts",
+      "desc": "Flash info, sports, économie, culture — aux couleurs de votre média."
+    },
+    "item3": {
+      "title": "Bot Telegram intelligent",
+      "desc": "Envoyez un article au bot, il génère la carte et l'envoie directement à votre chaîne."
+    },
+    "item4": {
+      "title": "Personnalisation complète",
+      "desc": "Votre logo, vos couleurs, vos polices, multiples formats : carré, story, paysage."
+    },
+    "item5": {
+      "title": "Système Canvas avancé",
+      "desc": "Placez les éléments librement sur l'image de fond, comme un logiciel de design professionnel."
+    },
+    "item6": {
+      "title": "API prête à intégrer",
+      "desc": "Connectez votre système à l'API et générez des cartes automatiquement depuis votre CMS."
+    }
+  },
+  "howItWorks": {
+    "title": "Comment ça marche ?",
+    "subtitle": "Trois étapes seulement pour une carte d'actualité professionnelle",
+    "step1": {
+      "title": "Choisissez un modèle",
+      "desc": "Parmi plus de 20 modèles prêts ou personnalisez avec vos couleurs et logo."
+    },
+    "step2": {
+      "title": "Entrez le contenu",
+      "desc": "Titre, image de fond, logo — tout en 30 secondes."
+    },
+    "step3": {
+      "title": "Téléchargez et publiez",
+      "desc": "Carte en 1080px prête pour toutes les plateformes."
+    }
+  },
+  "pricing": {
+    "title": "Choisissez votre plan",
+    "subtitle": "Commencez gratuitement, évoluez selon vos besoins",
+    "monthly": "Mensuel",
+    "yearly": "Annuel",
+    "save": "Économisez 20%",
+    "popular": "Le plus populaire",
+    "cta": "Commencer maintenant",
+    "ctaPro": "Essayer Pro",
+    "free": {
+      "name": "Gratuit",
+      "price": "0",
+      "desc": "Pour débuter et tester",
+      "f1": "5 cartes par jour",
+      "f2": "3 modèles",
+      "f3": "Formats de base",
+      "f4": "Téléchargement PNG"
+    },
+    "basic": {
+      "name": "Basic",
+      "price": "9",
+      "priceYear": "7",
+      "desc": "Pour les journalistes indépendants",
+      "f1": "50 cartes par jour",
+      "f2": "Tous les modèles",
+      "f3": "Logo et branding",
+      "f4": "API limitée",
+      "f5": "Bot Telegram"
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "29",
+      "priceYear": "23",
+      "desc": "Pour les médias professionnels",
+      "f1": "Cartes illimitées",
+      "f2": "Canvas avancé",
+      "f3": "API illimitée",
+      "f4": "Multi-bots Telegram",
+      "f5": "Modèles personnalisés",
+      "f6": "Support prioritaire 24/7"
+    },
+    "currency": "€"
+  },
+  "faq": {
+    "title": "Questions fréquentes",
+    "subtitle": "Tout ce que vous voulez savoir",
+    "q1": "La plateforme supporte-t-elle pleinement l'arabe ?",
+    "a1": "Oui, la plateforme est construite nativement pour l'arabe : polices, direction RTL et design — tout est optimisé.",
+    "q2": "Faut-il des connaissances techniques ?",
+    "a2": "Pas du tout. L'interface est conçue pour être très simple — en 3 étapes vous obtenez votre carte.",
+    "q3": "Quel format ont les images générées ?",
+    "a3": "PNG en 1080×1080 (ou selon le format choisi) — prêt à publier immédiatement.",
+    "q4": "Peut-on utiliser le logo de son média ?",
+    "a4": "Oui, vous pouvez uploader votre logo et définir sa position. Dans les plans payants, il est sauvegardé automatiquement.",
+    "q5": "Comment fonctionne le bot Telegram ?",
+    "a5": "Vous connectez le bot à votre compte, envoyez le texte de l'article avec l'image — le bot génère la carte et l'envoie directement à votre chaîne.",
+    "q6": "Peut-on annuler à tout moment ?",
+    "a6": "Oui, vous pouvez annuler votre abonnement à tout moment sans frais supplémentaires."
+  },
+  "footer": {
+    "desc": "Générateur de cartes d'actualités arabe — qualité broadcast en quelques secondes.",
+    "product": "Produit",
+    "tool": "Outil gratuit",
+    "dashboard": "Tableau de bord",
+    "pricing": "Tarifs",
+    "company": "Entreprise",
+    "about": "À propos",
+    "contact": "Contact",
+    "rights": "Tous droits réservés",
+    "lang": "Langue"
+  }
+}
