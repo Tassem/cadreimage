@@ -1,39 +1,42 @@
 /**
- * Landing — NewsCard Pro
- * Desktop-first · Cairo + Inter · #0066FF system
- * Max-width 1280px · Full-bleed hero · Horizontal layout
+ * Landing — مولّد البطاقات
+ * Dark theme · Red accent · RTL-first · Cairo font
+ * Matches reference screenshots exactly.
  */
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Globe, Menu, X, ChevronDown, CheckCircle2, Star,
-  Zap, Bot, Code2, Palette, Layout, LayoutTemplate,
-  Newspaper, ArrowRight, ArrowLeft, Plus, Minus, Download,
-  Image as ImgIcon, Shield,
+  Menu, X, Check, Star, ChevronDown,
+  LayoutTemplate, Languages, Sliders,
+  Globe,
 } from "lucide-react";
 
-/* ═══ TOKENS ═══════════════════════════════════════════════ */
-const C = {
-  blue:    "#0066FF",
-  blueDk:  "#004FCC",
-  blueLt:  "#EBF3FF",
-  blueMd:  "#C2DAFE",
+/* ══════════════════════════════════════════════════════════ */
+/* TOKENS                                                     */
+/* ══════════════════════════════════════════════════════════ */
+const D = {
+  bg:      "#09090F",        // dark page bg
+  surface: "#111119",        // dark card bg
+  card:    "#16161F",        // pricing card bg
+  red:     "#E5243A",        // primary red
+  redHov:  "#C41F33",        // red hover
+  redGlow: "rgba(229,36,58,0.18)",
   white:   "#FFFFFF",
-  bg:      "#F7F9FC",
-  ink:     "#0F172A",
-  sub:     "#475569",
-  border:  "#E2E8F0",
-  soft:    "#F1F5F9",
+  lightBg: "#F8F8FA",        // light sections
+  muted:   "#9CA3B0",        // muted text
+  border:  "rgba(255,255,255,0.07)",
+  borderL: "#E5E7EB",        // light border
 };
 
-/* ═══ LANGUAGES ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════ */
+/* LANGUAGES                                                  */
+/* ══════════════════════════════════════════════════════════ */
 const LANGS = [
-  { code:"ar", label:"العربية",  flag:"AR", dir:"rtl" as const, font:"'Cairo',sans-serif" },
-  { code:"en", label:"English",  flag:"EN", dir:"ltr" as const, font:"'Inter',sans-serif" },
-  { code:"fr", label:"Français", flag:"FR", dir:"ltr" as const, font:"'Inter',sans-serif" },
+  { code:"ar", flag:"AR", dir:"rtl" as const, font:"'Cairo',sans-serif" },
+  { code:"en", flag:"EN", dir:"ltr" as const, font:"'Cairo','Inter',sans-serif" },
+  { code:"fr", flag:"FR", dir:"ltr" as const, font:"'Cairo','Inter',sans-serif" },
 ] as const;
-type LangCode = "ar"|"en"|"fr";
 
 function useLang() {
   const { i18n } = useTranslation();
@@ -44,149 +47,167 @@ function applyLang(l: typeof LANGS[number]) {
   document.documentElement.setAttribute("lang", l.code);
 }
 
-/* ═══ LANG PICKER ══════════════════════════════════════ */
-function LangPicker({ dark }: { dark?: boolean }) {
-  const { i18n } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const cur = LANGS.find(l => l.code === i18n.language) ?? LANGS[0];
+/* ══════════════════════════════════════════════════════════ */
+/* INTERSECTION HELPER                                        */
+/* ══════════════════════════════════════════════════════════ */
+function useInView(th = 0.1) {
+  const ref = useRef<HTMLElement>(null);
+  const [v, setV] = useState(false);
+  useEffect(() => {
+    const o = new IntersectionObserver(([e]) => e.isIntersecting && setV(true), { threshold: th });
+    if (ref.current) o.observe(ref.current);
+    return () => o.disconnect();
+  }, []);
+  return { ref, v };
+}
 
-  const pick = (l: typeof LANGS[number]) => {
+/* ══════════════════════════════════════════════════════════ */
+/* NAVBAR                                                     */
+/* ══════════════════════════════════════════════════════════ */
+function Navbar({ onTool }: { onTool: () => void }) {
+  const { t, i18n } = useTranslation();
+  const lang = useLang();
+  const [mob, setMob] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const langRef = useRef<HTMLDivElement>(null);
+
+  const pickLang = (l: typeof LANGS[number]) => {
     i18n.changeLanguage(l.code);
     localStorage.setItem("ncg-lang", l.code);
     applyLang(l);
-    setOpen(false);
+    setLangOpen(false);
   };
+
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const h = (e: MouseEvent) => { if (!langRef.current?.contains(e.target as Node)) setLangOpen(false); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  return (
-    <div ref={ref} className="relative select-none">
-      <button onClick={() => setOpen(v => !v)}
-        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border transition-all
-          ${dark
-            ? "border-white/20 text-white/75 hover:bg-white/10"
-            : "border-slate-200 text-slate-600 hover:border-blue-300 bg-white shadow-sm"}`}>
-        <Globe size={14} />
-        <span className="w-6 text-center tracking-wide">{cur.flag}</span>
-        <ChevronDown size={11} className={`transition-transform ${open?"rotate-180":""}`} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.ul
-            initial={{ opacity:0, y:-4, scale:0.97 }}
-            animate={{ opacity:1, y:0, scale:1 }}
-            exit={{ opacity:0, y:-4, scale:0.97 }}
-            transition={{ duration:0.13 }}
-            className="absolute top-full mt-1.5 end-0 z-[400] w-44 bg-white border border-slate-100 rounded-xl shadow-xl py-1.5">
-            {LANGS.map(l => (
-              <li key={l.code}>
-                <button onClick={() => pick(l)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-start transition-colors
-                    ${l.code === cur.code
-                      ? "bg-blue-50 text-blue-700 font-bold"
-                      : "text-slate-700 hover:bg-slate-50 font-medium"}`}>
-                  <span className={`inline-flex items-center justify-center w-7 h-5 rounded text-[10px] font-black
-                    ${l.code === cur.code ? "bg-[#0066FF] text-white" : "bg-slate-100 text-slate-500"}`}>
-                    {l.flag}
-                  </span>
-                  {l.label}
-                  {l.code === cur.code && <CheckCircle2 size={12} className="ms-auto text-blue-400" />}
-                </button>
-              </li>
-            ))}
-          </motion.ul>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+  const go = (id: string) => { document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }); setMob(false); };
+  const cur = LANGS.find(l => l.code === i18n.language) ?? LANGS[0];
 
-/* ═══ NAVBAR ════════════════════════════════════════════ */
-function Navbar({ onTool }: { onTool: () => void }) {
-  const { t } = useTranslation();
-  const lang = useLang();
-  const [scrolled, setScrolled] = useState(false);
-  const [mob, setMob] = useState(false);
-
-  useEffect(() => {
-    const h = () => setScrolled(window.scrollY > 4);
-    window.addEventListener("scroll", h, { passive: true });
-    return () => window.removeEventListener("scroll", h);
-  }, []);
-
-  const go = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-    setMob(false);
-  };
-
-  const links = [
-    { id:"features", l:t("nav.features") },
-    { id:"how",      l:t("nav.howItWorks") },
-    { id:"pricing",  l:t("nav.pricing") },
+  const navLinks = [
+    { id: "features", label: t("nav.features")  },
+    { id: "how",      label: i18n.language === "ar" ? "المنتج"    : i18n.language === "fr" ? "Produit"   : "Product" },
+    { id: "pricing",  label: t("nav.pricing") },
   ];
 
   return (
-    <header style={{ fontFamily:lang.font }}
-      className={`fixed inset-x-0 top-0 z-50 bg-white transition-all duration-200
-        ${scrolled ? "shadow-[0_2px_20px_rgba(0,0,0,0.08)]" : "border-b border-slate-100"}`}>
-      <div className="max-w-[1280px] mx-auto px-8 h-[68px] flex items-center gap-6">
+    <header
+      style={{ fontFamily: lang.font, background: D.bg, borderBottom: `1px solid ${D.border}` }}
+      className="fixed inset-x-0 top-0 z-50"
+    >
+      <div className="max-w-[1280px] mx-auto px-6 h-[58px] flex items-center">
 
-        {/* Logo */}
-        <a href="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background:C.blue }}>
-            <Newspaper size={16} className="text-white" />
+        {/* Logo — always on the right in RTL */}
+        <a href="/" className="flex items-center gap-2.5 shrink-0 ms-auto lg:ms-0 order-2 lg:order-1">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-[16px]"
+            style={{ background: D.red }}>
+            ن
           </div>
-          <span className="font-extrabold text-[16px] tracking-tight" style={{ color:C.ink }}>
-            NewsCard<span style={{ color:C.blue }}> Pro</span>
+          <span className="font-extrabold text-white text-[15px] hidden sm:block">
+            {i18n.language === "ar" ? "مولّد البطاقات" : "NewsCard"}
           </span>
         </a>
 
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1 ms-4">
-          {links.map(n => (
+        {/* Desktop centre nav */}
+        <nav className="hidden lg:flex items-center gap-1 mx-auto order-2">
+          {navLinks.map(n => (
             <button key={n.id} onClick={() => go(n.id)}
-              className="px-4 py-2 text-[14px] font-medium text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-all">
-              {n.l}
+              className="px-4 py-2 text-[14px] font-medium rounded-lg transition-colors"
+              style={{ color: D.muted }}
+              onMouseEnter={e => (e.currentTarget.style.color = D.white)}
+              onMouseLeave={e => (e.currentTarget.style.color = D.muted)}>
+              {n.label}
             </button>
           ))}
         </nav>
 
-        <div className="flex items-center gap-3 ms-auto">
-          <LangPicker />
+        {/* Right cluster (appears on left in RTL) */}
+        <div className="flex items-center gap-2 order-1 lg:order-3 me-auto lg:me-0">
+
+          {/* Lang picker */}
+          <div ref={langRef} className="relative">
+            <button onClick={() => setLangOpen(v => !v)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors"
+              style={{ color: D.muted }}
+              onMouseEnter={e => (e.currentTarget.style.color = D.white)}
+              onMouseLeave={e => (e.currentTarget.style.color = D.muted)}>
+              {cur.flag}
+              <ChevronDown size={10} className={`transition-transform ${langOpen ? "rotate-180" : ""}`} />
+            </button>
+            <AnimatePresence>
+              {langOpen && (
+                <motion.ul
+                  initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                  transition={{ duration: 0.12 }}
+                  className="absolute top-full mt-1.5 end-0 z-[400] w-28 rounded-xl py-1.5 overflow-hidden"
+                  style={{ background: "#1c1c28", border: `1px solid ${D.border}` }}>
+                  {LANGS.map(l => (
+                    <li key={l.code}>
+                      <button onClick={() => pickLang(l)}
+                        className="w-full text-center py-2.5 text-[13px] font-bold transition-colors"
+                        style={{ color: l.code === cur.code ? D.white : D.muted }}>
+                        {l.flag}
+                      </button>
+                    </li>
+                  ))}
+                </motion.ul>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Free tool link */}
+          <button onClick={onTool}
+            className="hidden sm:block text-[13px] font-medium transition-colors px-1"
+            style={{ color: D.muted }}
+            onMouseEnter={e => (e.currentTarget.style.color = D.white)}
+            onMouseLeave={e => (e.currentTarget.style.color = D.muted)}>
+            {i18n.language === "ar" ? "مولّد البطاقات المجاني" : i18n.language === "fr" ? "Outil gratuit" : "Free Tool"}
+          </button>
+
+          {/* Pro dashboard — red button */}
           <a href="/pro/"
-            className="hidden sm:block px-3 py-2 text-[14px] font-medium text-slate-600 hover:text-blue-600 transition-colors">
+            className="hidden sm:inline-flex items-center px-4 py-2 rounded-lg text-[13px] font-bold text-white transition-all"
+            style={{ background: D.red }}
+            onMouseEnter={e => (e.currentTarget.style.background = D.redHov)}
+            onMouseLeave={e => (e.currentTarget.style.background = D.red)}>
             {t("nav.dashboard")}
           </a>
-          <button onClick={onTool}
-            className="px-5 py-2.5 rounded-xl text-[14px] font-bold text-white transition-all shadow-sm"
-            style={{ background:C.blue }}
-            onMouseEnter={e => (e.currentTarget.style.background = C.blueDk)}
-            onMouseLeave={e => (e.currentTarget.style.background = C.blue)}>
-            {t("nav.tryFree")}
-          </button>
-          <button className="md:hidden p-2 text-slate-500" onClick={() => setMob(v => !v)}>
-            {mob ? <X size={20}/> : <Menu size={20}/>}
+
+          <button className="lg:hidden p-2" style={{ color: D.muted }} onClick={() => setMob(v => !v)}>
+            {mob ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
 
+      {/* Mobile dropdown */}
       <AnimatePresence>
         {mob && (
-          <motion.div initial={{ height:0, opacity:0 }} animate={{ height:"auto", opacity:1 }}
-            exit={{ height:0, opacity:0 }} className="md:hidden bg-white border-t border-slate-100 overflow-hidden">
-            <div className="max-w-[1280px] mx-auto px-8 py-3 flex flex-col gap-1">
-              {links.map(n => (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="lg:hidden overflow-hidden"
+            style={{ background: D.bg, borderTop: `1px solid ${D.border}` }}>
+            <div className="max-w-[1280px] mx-auto px-6 py-3 flex flex-col gap-1">
+              {navLinks.map(n => (
                 <button key={n.id} onClick={() => go(n.id)}
-                  className="text-start px-4 py-3 rounded-xl text-sm text-slate-700 hover:bg-slate-50 font-medium">
-                  {n.l}
+                  className="text-start px-3 py-3 rounded-xl text-[14px] font-medium transition-colors"
+                  style={{ color: D.muted }}>
+                  {n.label}
                 </button>
               ))}
-              <a href="/pro/" className="px-4 py-3 rounded-xl text-sm text-slate-700 hover:bg-slate-50 font-medium">
+              <button onClick={onTool}
+                className="text-start px-3 py-3 rounded-xl text-[14px] font-medium"
+                style={{ color: D.muted }}>
+                {i18n.language === "ar" ? "مولّد البطاقات المجاني" : "Free Tool"}
+              </button>
+              <a href="/pro/"
+                className="mt-1 w-full text-center py-3 rounded-xl text-[14px] font-bold text-white"
+                style={{ background: D.red }}>
                 {t("nav.dashboard")}
               </a>
             </div>
@@ -197,491 +218,103 @@ function Navbar({ onTool }: { onTool: () => void }) {
   );
 }
 
-/* ═══ BROWSER MOCKUP ══════════════════════════════════ */
-function BrowserMockup() {
-  const [active, setActive] = useState(1);
-  const tpls = [
-    { cat:"عاجل",   badge:"#DC2626", g1:"#4a0404", g2:"#1c0a0a", headline:"القمة العربية تنتهي بوثيقة السلام الشاملة" },
-    { cat:"اقتصاد", badge:"#B45309", g1:"#1c1206", g2:"#0f0a05", headline:"البنك المركزي يرفع أسعار الفائدة للمرة الثالثة هذا العام" },
-    { cat:"رياضة",  badge:"#15803D", g1:"#04230e", g2:"#030f06", headline:"المنتخب الوطني يتأهل لنهائيات كأس العالم ٢٠٢٦" },
-  ];
-  const t = tpls[active];
-
-  return (
-    <div className="relative">
-      {/* ambient glow */}
-      <div className="absolute inset-6 rounded-3xl blur-2xl opacity-20 -z-10"
-        style={{ background:C.blue }} />
-
-      {/* frame */}
-      <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
-        style={{ boxShadow:"0 32px 80px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.06)" }}>
-
-        {/* chrome */}
-        <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-slate-100 bg-slate-50" dir="ltr">
-          <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-[#FF5F57]" />
-            <div className="w-3 h-3 rounded-full bg-[#FEBC2E]" />
-            <div className="w-3 h-3 rounded-full bg-[#28C840]" />
-          </div>
-          <div className="flex-1 mx-3 h-7 px-3 flex items-center gap-2 bg-white border border-slate-200 rounded-md">
-            <div className="w-2 h-2 rounded-full bg-green-400" />
-            <span className="text-slate-400 text-[11px]">newscard.pro/generate</span>
-          </div>
-          <span className="text-[11px] text-slate-400 font-mono">v2.4</span>
-        </div>
-
-        {/* body */}
-        <div className="flex" dir="ltr">
-
-          {/* templates sidebar */}
-          <div className="w-36 shrink-0 border-r border-slate-100 bg-slate-50 p-4">
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-3">Templates</p>
-            <div className="flex flex-col gap-2.5">
-              {tpls.map((tpl, i) => (
-                <button key={i} onClick={() => setActive(i)}
-                  className={`w-full rounded-xl overflow-hidden border-2 text-start transition-all
-                    ${active===i ? "border-[#0066FF] shadow-md shadow-blue-100" : "border-transparent opacity-60 hover:opacity-90"}`}>
-                  <div className="h-14 relative"
-                    style={{ background:`linear-gradient(to bottom right,${tpl.g1},${tpl.g2})` }}>
-                    <span className="absolute bottom-2 start-2 text-[8px] font-black px-1.5 py-0.5 rounded text-white"
-                      style={{ background:tpl.badge }}>
-                      {tpl.cat}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* canvas */}
-          <div className="flex-1 flex items-center justify-center p-8"
-            style={{ background:"#EEF3FB", minHeight:"280px" }}>
-            <AnimatePresence mode="wait">
-              <motion.div key={active}
-                initial={{ opacity:0, scale:0.93, y:8 }}
-                animate={{ opacity:1, scale:1, y:0 }}
-                exit={{ opacity:0, scale:0.93, y:-8 }}
-                transition={{ duration:0.22 }}
-                className="w-48 rounded-2xl overflow-hidden"
-                style={{ boxShadow:"0 20px 50px rgba(0,0,0,0.20)" }}>
-                <div className="h-32 relative"
-                  style={{ background:`linear-gradient(135deg,${t.g1},${t.g2})` }}>
-                  <div className="absolute inset-0"
-                    style={{ background:"linear-gradient(to top,rgba(0,0,0,0.5),transparent)" }}/>
-                  <span className="absolute bottom-2.5 start-2.5 text-[10px] font-black px-2 py-0.5 rounded text-white z-10"
-                    style={{ background:t.badge }}>
-                    {t.cat}
-                  </span>
-                  <div className="absolute top-2.5 end-2.5 w-6 h-6 rounded flex items-center justify-center bg-white/15">
-                    <Newspaper size={10} className="text-white" />
-                  </div>
-                </div>
-                <div className="p-3.5" style={{ background:"#0b1f4a" }}>
-                  <div className="w-5 h-0.5 rounded mb-2" style={{ background:t.badge }} />
-                  <p className="text-white text-[10px] leading-snug font-medium">{t.headline}</p>
-                  <p className="text-white/40 text-[9px] mt-2">٧ أبريل ٢٠٢٦</p>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* properties panel */}
-          <div className="w-36 shrink-0 border-l border-slate-100 bg-white p-4 flex flex-col gap-4">
-            <div>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-2.5">Color</p>
-              <div className="flex flex-wrap gap-2">
-                {["#0b1f4a","#4a0404","#04230e","#1e1b4b"].map((col,i) => (
-                  <div key={col}
-                    className={`w-5 h-5 rounded-full cursor-pointer transition-transform ${i===0?"ring-2 ring-[#0066FF] ring-offset-1 scale-110":"hover:scale-110"}`}
-                    style={{ background:col }} />
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-2">Format</p>
-              {[["1:1","1080×1080",true],["9:16","Story",false],["16:9","Wide",false]].map(([r,lbl,sel]) => (
-                <div key={String(r)}
-                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[9px] mb-1 cursor-pointer
-                    ${sel ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-500 hover:bg-slate-50"}`}>
-                  <span>{r}</span><span>{lbl}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-[9px] text-slate-500 font-medium">Live sync</span>
-            </div>
-            <button className="mt-auto w-full py-2 rounded-lg text-[9px] font-bold text-white"
-              style={{ background:C.blue }}>
-              Export PNG
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* floating chips — anchored corners */}
-      <div className="absolute -top-3 -start-3 flex items-center gap-2 bg-white border border-slate-200 shadow-lg rounded-xl px-3 py-2">
-        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-        <span className="text-[12px] font-bold text-slate-700">Live Preview</span>
-      </div>
-      <div className="absolute -bottom-3 -end-3 px-3.5 py-2 rounded-xl text-[12px] font-bold text-white shadow-lg"
-        style={{ background:C.blue }}>
-        1080 × 1080 px
-      </div>
-    </div>
-  );
-}
-
-/* ═══ HERO ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════ */
+/* HERO — dark, centered, red glow                            */
+/* ══════════════════════════════════════════════════════════ */
 function Hero({ onTool }: { onTool: () => void }) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const lang = useLang();
-  const isRtl = lang.dir === "rtl";
-  const Arrow = isRtl ? ArrowLeft : ArrowRight;
 
-  const copy: Record<string,{h1:string;h2:string}> = {
-    ar: { h1:"أنت تصنع الخبر،",        h2:"ونحن نصنع البطاقة." },
-    en: { h1:"You make the news,",      h2:"We make the card." },
-    fr: { h1:"Vous créez l'actualité,", h2:"Nous créons la carte." },
+  const copy: Record<string, { badge: string; h: string; sub: string; cta: string; sec: string }> = {
+    ar: {
+      badge: "الخيار الأول للغرف الإخبارية العربية",
+      h: "صمم بطاقات إخبارية\nاحترافية في ثوانٍ.",
+      sub: "أداة ساس الأقوى للصحفيين والفرق الإعلامية لتوليد صور بطاقات إخبارية عربية فورية وموثوقة.",
+      cta: "ابدأ الآن مجاناً",
+      sec: "تصفح المميزات",
+    },
+    en: {
+      badge: "The #1 tool for Arabic newsrooms",
+      h: "Design professional\nnews cards in seconds.",
+      sub: "The most powerful SaaS for journalists and media teams to generate Arabic news card images instantly.",
+      cta: "Start for free",
+      sec: "Browse features",
+    },
+    fr: {
+      badge: "Le n°1 pour les rédactions arabes",
+      h: "Créez des cartes\nd'actualités en secondes.",
+      sub: "L'outil SaaS le plus puissant pour générer des cartes d'actualités arabes instantanément.",
+      cta: "Commencer gratuitement",
+      sec: "Voir les fonctionnalités",
+    },
   };
-  const cp = copy[i18n.language] ?? copy.ar;
+  const c = copy[i18n.language] ?? copy.ar;
 
   return (
-    <section className="relative overflow-hidden" style={{ background:C.white }}>
-      {/* top blue tint */}
-      <div className="absolute inset-x-0 top-0 h-[500px] pointer-events-none"
-        style={{ background:"radial-gradient(ellipse 80% 60% at 50% -10%,rgba(0,102,255,0.07) 0%,transparent 100%)" }} />
+    <section
+      className="relative overflow-hidden flex flex-col items-center justify-center text-center"
+      style={{ background: D.bg, minHeight: "100vh", fontFamily: lang.font }}
+    >
+      {/* Red glow orbs */}
+      <div className="absolute pointer-events-none"
+        style={{
+          inset: 0,
+          background: `radial-gradient(ellipse 55% 55% at 70% 50%, ${D.redGlow} 0%, transparent 70%)`,
+        }} />
+      <div className="absolute pointer-events-none"
+        style={{
+          inset: 0,
+          background: `radial-gradient(ellipse 40% 40% at 30% 60%, rgba(229,36,58,0.08) 0%, transparent 70%)`,
+        }} />
 
-      <div className="relative max-w-[1280px] mx-auto px-8 pt-20 pb-24 lg:pb-28">
-        <div className="grid lg:grid-cols-2 gap-12 xl:gap-20 items-center">
+      <div className="relative z-10 max-w-[820px] mx-auto px-6 py-20">
 
-          {/* TEXT */}
-          <motion.div initial={{ opacity:0, x: isRtl?20:-20 }} animate={{ opacity:1, x:0 }}
-            transition={{ duration:0.55 }}
-            className={`flex flex-col order-2 lg:order-1 ${isRtl ? "items-end text-end" : "items-start text-start"}`}>
+        {/* Pill badge */}
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+          className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full text-[13px] font-medium mb-8"
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: D.white }}>
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: D.red }} />
+          {c.badge}
+        </motion.div>
 
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold border mb-7"
-              style={{ background:C.blueLt, color:C.blue, borderColor:C.blueMd }}>
-              <Zap size={13} />
-              {t("hero.badge")}
-            </div>
+        {/* Headline */}
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.05 }}
+          className="font-black text-white mb-6 whitespace-pre-line"
+          style={{
+            fontFamily: lang.font,
+            fontSize: "clamp(2.4rem, 5vw, 4.2rem)",
+            lineHeight: 1.12,
+            letterSpacing: lang.dir === "rtl" ? "0" : "-0.03em",
+          }}>
+          {c.h}
+        </motion.h1>
 
-            <h1 className="font-black leading-[1.08] mb-6 text-slate-900"
-              style={{ fontFamily:lang.font, fontSize:"clamp(2.4rem,5vw,4rem)", letterSpacing:isRtl?"0":"-0.04em" }}>
-              <span className="block">{cp.h1}</span>
-              <span className="block" style={{ color:C.blue }}>{cp.h2}</span>
-            </h1>
+        {/* Subtitle */}
+        <motion.p
+          initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
+          className="mx-auto mb-10 leading-relaxed"
+          style={{ color: D.muted, fontSize: "clamp(15px, 2vw, 18px)", maxWidth: "560px" }}>
+          {c.sub}
+        </motion.p>
 
-            <p className="leading-relaxed mb-9 max-w-[480px]"
-              style={{ color:C.sub, fontSize:"clamp(16px,1.8vw,18px)" }}>
-              {t("hero.subtitle")}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4 mb-12">
-              <button onClick={onTool}
-                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl font-bold text-[15px] text-white transition-all"
-                style={{ background:C.blue, boxShadow:"0 4px 24px rgba(0,102,255,0.32)" }}
-                onMouseEnter={e => (e.currentTarget.style.background = C.blueDk)}
-                onMouseLeave={e => (e.currentTarget.style.background = C.blue)}>
-                {t("hero.cta")} <Arrow size={15}/>
-              </button>
-              <a href="/pro/"
-                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl font-semibold text-[15px] text-slate-700 bg-white border border-slate-200 hover:border-slate-300 transition-all"
-                style={{ boxShadow:"0 1px 6px rgba(0,0,0,0.06)" }}>
-                {i18n.language==="ar" ? "لوحة التحكم" : i18n.language==="fr" ? "Tableau de bord" : "Dashboard"} →
-              </a>
-            </div>
-
-            {/* stats */}
-            <div className="flex items-stretch gap-10 pt-8 border-t border-slate-200">
-              {[
-                { v:"10,000+", l:t("hero.stat1") },
-                { v:"20+",     l:t("hero.stat2") },
-                { v:"3",       l:isRtl?"لغات مدعومة":"Languages" },
-              ].map((s,i) => (
-                <div key={i} className="flex flex-col">
-                  <span className="text-3xl font-black text-slate-900" dir="ltr">{s.v}</span>
-                  <span className="text-[13px] mt-0.5" style={{ color:C.sub }}>{s.l}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* MOCKUP */}
-          <motion.div initial={{ opacity:0, x:isRtl?-20:20 }} animate={{ opacity:1, x:0 }}
-            transition={{ duration:0.6, delay:0.1 }}
-            className="order-1 lg:order-2 px-4 sm:px-0">
-            <BrowserMockup />
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ═══ LOGO STRIP ═════════════════════════════════════ */
-function Logos() {
-  const { i18n } = useTranslation();
-  const items = ["Al Jazeera · الجزيرة","Al Mayadeen · الميادين","Al Arabiya · العربية","Sky News Arabia","BBC Arabic"];
-  const label = i18n.language==="ar" ? "موثوق به لدى فرق الإعلام في" : i18n.language==="fr" ? "Utilisé par" : "Trusted by editorial teams at";
-  return (
-    <div className="border-y border-slate-100 py-5" style={{ background:C.soft }}>
-      <div className="max-w-[1280px] mx-auto px-8">
-        <p className="text-center text-[11px] font-semibold text-slate-400 uppercase tracking-[0.15em] mb-4">{label}</p>
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-2">
-          {items.map(it => <span key={it} className="text-[13px] font-semibold text-slate-400">{it}</span>)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══ FEATURES ══════════════════════════════════════ */
-const FEATS = [
-  { icon:Zap,            k:"item1" },
-  { icon:LayoutTemplate, k:"item2" },
-  { icon:Bot,            k:"item3" },
-  { icon:Palette,        k:"item4" },
-  { icon:Layout,         k:"item5" },
-  { icon:Code2,          k:"item6" },
-];
-
-function useInView(threshold=0.12) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [v, setV] = useState(false);
-  useEffect(() => {
-    const o = new IntersectionObserver(([e]) => e.isIntersecting && setV(true), { threshold });
-    if (ref.current) o.observe(ref.current);
-    return () => o.disconnect();
-  }, []);
-  return { ref, v };
-}
-
-function Features() {
-  const { t } = useTranslation();
-  const { ref, v } = useInView();
-  return (
-    <section id="features" ref={ref} className="py-24 px-8" style={{ background:C.white }}>
-      <div className="max-w-[1280px] mx-auto">
-
-        {/* header: label + title side by side on desktop */}
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-14">
-          <div>
-            <motion.p initial={{ opacity:0 }} animate={v?{opacity:1}:{}}
-              className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color:C.blue }}>
-              {t("nav.features")}
-            </motion.p>
-            <motion.h2 initial={{ opacity:0, y:12 }} animate={v?{opacity:1,y:0}:{}} transition={{ delay:0.07 }}
-              className="font-black text-slate-900" style={{ fontSize:"clamp(1.8rem,3vw,2.8rem)" }}>
-              {t("features.title")}
-            </motion.h2>
-          </div>
-          <motion.p initial={{ opacity:0 }} animate={v?{opacity:1}:{}} transition={{ delay:0.14 }}
-            className="text-slate-500 text-[15px] leading-relaxed max-w-sm lg:text-end">
-            {t("features.subtitle")}
-          </motion.p>
-        </div>
-
-        {/* 3-col grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {FEATS.map(({ icon:Icon, k }, i) => (
-            <motion.div key={k}
-              initial={{ opacity:0, y:20 }} animate={v?{opacity:1,y:0}:{}} transition={{ delay:i*0.07 }}
-              className="group bg-white border border-slate-200 rounded-2xl p-7 hover:border-blue-200 hover:shadow-xl transition-all duration-250 hover:-translate-y-1 cursor-default">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 transition-transform group-hover:scale-110"
-                style={{ background:C.blueLt }}>
-                <Icon size={22} style={{ color:C.blue }} />
-              </div>
-              <h3 className="font-bold text-slate-900 text-[16px] mb-2.5">{t(`features.${k}.title`)}</h3>
-              <p className="text-slate-500 text-[14px] leading-relaxed">{t(`features.${k}.desc`)}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ═══ MULTI-LANG ═════════════════════════════════════ */
-function MultiLang() {
-  const { i18n } = useTranslation();
-  const [sel, setSel] = useState<LangCode>("ar");
-  const { ref, v } = useInView();
-
-  const TABS: Record<LangCode,{ dir:"rtl"|"ltr"; font:string; h:string; sub:string; cta:string; cat:string; news:string }> = {
-    ar: { dir:"rtl", font:"'Cairo',sans-serif",
-          h:"أنت تصنع الخبر،\nونحن نصنع البطاقة.",
-          sub:"منصة بطاقات الأخبار العربية — بجودة بث تلفزيوني للمؤسسات الإعلامية.",
-          cta:"ابدأ مجاناً", cat:"اقتصاد",
-          news:"البنك المركزي يرفع أسعار الفائدة للمرة الثالثة هذا العام" },
-    en: { dir:"ltr", font:"'Inter',sans-serif",
-          h:"You make the news,\nWe make the card.",
-          sub:"Arabic news card platform — broadcast-quality output for media teams.",
-          cta:"Get started free", cat:"Business",
-          news:"Central bank raises interest rates for the third time this year" },
-    fr: { dir:"ltr", font:"'Inter',sans-serif",
-          h:"Vous créez l'actualité,\nNous créons la carte.",
-          sub:"Générateur de cartes d'actualités — qualité broadcast garantie.",
-          cta:"Commencer", cat:"Économie",
-          news:"La banque centrale relève ses taux pour la 3ème fois cette année" },
-  };
-  const tab = TABS[sel];
-
-  const title = i18n.language==="ar" ? "ثلاث لغات، واجهة واحدة"
-    : i18n.language==="fr" ? "Trois langues, une interface"
-    : "Three languages, one interface";
-
-  return (
-    <section ref={ref} className="py-24 px-8 border-y border-slate-100" style={{ background:C.bg }}>
-      <div className="max-w-[1280px] mx-auto">
-
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 mb-10">
-          <div>
-            <motion.p initial={{ opacity:0 }} animate={v?{opacity:1}:{}}
-              className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color:C.blue }}>
-              Multi-language
-            </motion.p>
-            <motion.h2 initial={{ opacity:0, y:12 }} animate={v?{opacity:1,y:0}:{}} transition={{ delay:0.07 }}
-              className="font-black text-slate-900" style={{ fontSize:"clamp(1.8rem,3vw,2.8rem)" }}>
-              {title}
-            </motion.h2>
-          </div>
-
-          {/* tab strip */}
-          <motion.div initial={{ opacity:0 }} animate={v?{opacity:1}:{}} transition={{ delay:0.12 }}>
-            <div className="inline-flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-              {(["ar","en","fr"] as LangCode[]).map(code => (
-                <button key={code} onClick={() => setSel(code)}
-                  className={`px-6 py-2.5 rounded-lg text-[13px] font-bold transition-all
-                    ${sel===code ? "text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                  style={sel===code ? { background:C.blue } : {}}>
-                  {code.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-
-        {/* big panel */}
-        <AnimatePresence mode="wait">
-          <motion.div key={sel}
-            initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }}
-            exit={{ opacity:0, y:-8 }} transition={{ duration:0.2 }}
-            dir={tab.dir}
-            className="bg-white border border-slate-200 rounded-3xl p-10 lg:p-14 shadow-sm"
-            style={{ fontFamily:tab.font }}>
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-
-              {/* text side */}
-              <div>
-                <div className="flex items-center gap-2.5 mb-6">
-                  <span className="text-[11px] font-black px-3 py-1 rounded-full text-white"
-                    style={{ background:C.blue }}>
-                    {sel.toUpperCase()}
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 font-semibold">
-                    {tab.dir.toUpperCase()} direction
-                  </span>
-                </div>
-                <h3 className="font-black text-slate-900 leading-snug mb-5 whitespace-pre-line"
-                  style={{ fontSize:"clamp(1.6rem,3vw,2.4rem)" }}>
-                  {tab.h}
-                </h3>
-                <p className="text-slate-500 text-[16px] mb-8 leading-relaxed">{tab.sub}</p>
-                <button className="px-7 py-3 rounded-xl text-[15px] font-bold text-white transition-opacity hover:opacity-90"
-                  style={{ background:C.blue }}>
-                  {tab.cta}
-                </button>
-              </div>
-
-              {/* card preview side */}
-              <div className={`flex ${tab.dir==="rtl" ? "justify-start" : "justify-end"}`}>
-                <div className="w-52 rounded-2xl overflow-hidden"
-                  style={{ boxShadow:"0 24px 60px rgba(0,0,0,0.15)" }}>
-                  <div className="h-36 relative"
-                    style={{ background:"linear-gradient(135deg,#0b1f4a,#1e3a6e)" }}>
-                    <div className="absolute inset-0" style={{ background:"linear-gradient(to top,rgba(0,0,0,0.4),transparent)" }}/>
-                    <span className="absolute bottom-3 start-3 text-[10px] font-black px-2 py-0.5 rounded text-white z-10"
-                      style={{ background:C.blue }}>
-                      {tab.cat}
-                    </span>
-                    <div className="absolute top-3 end-3 w-7 h-7 rounded flex items-center justify-center bg-white/15">
-                      <Newspaper size={11} className="text-white"/>
-                    </div>
-                  </div>
-                  <div className="p-4" style={{ background:"#0b1f4a" }}>
-                    <div className="w-6 h-0.5 rounded mb-3" style={{ background:C.blue }}/>
-                    <p className="text-white text-[11px] leading-snug">{tab.news}</p>
-                    <p className="text-white/40 text-[10px] mt-2.5">Apr 7, 2026</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-    </section>
-  );
-}
-
-/* ═══ HOW IT WORKS ═══════════════════════════════════ */
-function HowItWorks({ onTool }: { onTool: () => void }) {
-  const { t } = useTranslation();
-  const { ref, v } = useInView();
-  const steps = [
-    { k:"step1", icon:LayoutTemplate, n:1 },
-    { k:"step2", icon:ImgIcon,        n:2 },
-    { k:"step3", icon:Download,       n:3 },
-  ];
-  return (
-    <section id="how" ref={ref} className="py-24 px-8" style={{ background:C.white }}>
-      <div className="max-w-[1280px] mx-auto">
-        <div className="text-center mb-16">
-          <motion.p initial={{ opacity:0 }} animate={v?{opacity:1}:{}}
-            className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color:C.blue }}>
-            {t("nav.howItWorks")}
-          </motion.p>
-          <motion.h2 initial={{ opacity:0, y:12 }} animate={v?{opacity:1,y:0}:{}} transition={{ delay:0.07 }}
-            className="font-black text-slate-900 mb-4" style={{ fontSize:"clamp(1.8rem,3vw,2.8rem)" }}>
-            {t("howItWorks.title")}
-          </motion.h2>
-          <motion.p initial={{ opacity:0 }} animate={v?{opacity:1}:{}} transition={{ delay:0.14 }}
-            className="text-slate-500 text-[16px] max-w-md mx-auto leading-relaxed">
-            {t("howItWorks.subtitle")}
-          </motion.p>
-        </div>
-
-        <div className="grid sm:grid-cols-3 gap-8 relative">
-          {/* connector */}
-          <div className="hidden sm:block absolute top-10 start-[18%] end-[18%] h-px bg-slate-200" />
-
-          {steps.map(({ k, icon:Icon, n }, i) => (
-            <motion.div key={k}
-              initial={{ opacity:0, y:24 }} animate={v?{opacity:1,y:0}:{}} transition={{ delay:0.1+i*0.13 }}
-              className="flex flex-col items-center text-center">
-              <div className="relative w-20 h-20 rounded-2xl flex items-center justify-center mb-6 z-10"
-                style={{ background:C.blueLt, boxShadow:`0 8px 24px rgba(0,102,255,0.12)` }}>
-                <Icon size={28} style={{ color:C.blue }}/>
-                <span className="absolute -top-2.5 -end-2.5 w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-black text-white border-2 border-white"
-                  style={{ background:C.blue }}>
-                  {n}
-                </span>
-              </div>
-              <h3 className="font-bold text-slate-900 text-[17px] mb-2.5">{t(`howItWorks.${k}.title`)}</h3>
-              <p className="text-slate-500 text-[14px] leading-relaxed">{t(`howItWorks.${k}.desc`)}</p>
-            </motion.div>
-          ))}
-        </div>
-
-        <motion.div initial={{ opacity:0 }} animate={v?{opacity:1}:{}} transition={{ delay:0.52 }}
-          className="mt-14 flex justify-center">
+        {/* CTAs */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }}
+          className="flex flex-wrap items-center justify-center gap-4">
           <button onClick={onTool}
-            className="px-8 py-4 rounded-xl text-[15px] font-bold text-white transition-all"
-            style={{ background:C.ink }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#1e293b")}
-            onMouseLeave={e => (e.currentTarget.style.background = C.ink)}>
-            {t("nav.tryFree")}
+            className="px-8 py-3.5 rounded-xl font-bold text-[15px] text-white transition-all"
+            style={{ background: D.red, boxShadow: "0 4px 24px rgba(229,36,58,0.35)" }}
+            onMouseEnter={e => (e.currentTarget.style.background = D.redHov)}
+            onMouseLeave={e => (e.currentTarget.style.background = D.red)}>
+            {c.cta}
+          </button>
+          <button onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+            className="px-8 py-3.5 rounded-xl font-bold text-[15px] text-white transition-all"
+            style={{ background: "transparent", border: "1.5px solid rgba(255,255,255,0.18)" }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)")}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)")}>
+            {c.sec}
           </button>
         </motion.div>
       </div>
@@ -689,331 +322,359 @@ function HowItWorks({ onTool }: { onTool: () => void }) {
   );
 }
 
-/* ═══ PRICING ════════════════════════════════════════ */
-function Pricing({ onTool }: { onTool: () => void }) {
-  const { t } = useTranslation();
-  const [yr, setYr] = useState(false);
-  const { ref, v } = useInView();
+/* ══════════════════════════════════════════════════════════ */
+/* FEATURES — light bg, 3 cards                              */
+/* ══════════════════════════════════════════════════════════ */
+const FEAT_DATA = [
+  { icon: LayoutTemplate, key: "item2" },
+  { icon: Languages,      key: "item5" },
+  { icon: Sliders,        key: "item4" },
+];
 
-  return (
-    <section id="pricing" ref={ref} className="py-24 px-8 border-y border-slate-100" style={{ background:C.bg }}>
-      <div className="max-w-[1280px] mx-auto">
-        <div className="text-center mb-14">
-          <motion.p initial={{ opacity:0 }} animate={v?{opacity:1}:{}}
-            className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color:C.blue }}>
-            {t("nav.pricing")}
-          </motion.p>
-          <motion.h2 initial={{ opacity:0, y:12 }} animate={v?{opacity:1,y:0}:{}} transition={{ delay:0.07 }}
-            className="font-black text-slate-900 mb-3" style={{ fontSize:"clamp(1.8rem,3vw,2.8rem)" }}>
-            {t("pricing.title")}
-          </motion.h2>
-          <motion.p initial={{ opacity:0 }} animate={v?{opacity:1}:{}} transition={{ delay:0.14 }}
-            className="text-slate-500 text-[16px] mb-8">
-            {t("pricing.subtitle")}
-          </motion.p>
-
-          {/* toggle */}
-          <motion.div initial={{ opacity:0 }} animate={v?{opacity:1}:{}} transition={{ delay:0.2 }}>
-            <div className="inline-flex p-1.5 bg-white border border-slate-200 rounded-xl shadow-sm">
-              {[
-                { val:false, label:t("pricing.monthly") },
-                { val:true, label:(
-                  <span className="flex items-center gap-2">
-                    {t("pricing.yearly")}
-                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                      {t("pricing.save")}
-                    </span>
-                  </span>
-                )},
-              ].map(opt => (
-                <button key={String(opt.val)} onClick={() => setYr(opt.val)}
-                  className={`px-6 py-2.5 rounded-lg text-[13px] font-bold transition-all flex items-center gap-1
-                    ${yr===opt.val ? "text-white shadow" : "text-slate-500 hover:text-slate-700"}`}
-                  style={yr===opt.val ? { background:C.blue } : {}}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-
-        {/* cards — capped to 720px so they're not full 1280px wide */}
-        <div className="grid sm:grid-cols-2 gap-6 max-w-[720px] mx-auto items-stretch">
-
-          {/* FREE */}
-          <motion.div initial={{ opacity:0, y:24 }} animate={v?{opacity:1,y:0}:{}} transition={{ delay:0.16 }}
-            className="flex flex-col bg-white border border-slate-200 rounded-2xl p-8 shadow-sm hover:shadow-lg transition-shadow">
-            <div className="mb-7">
-              <span className="inline-flex px-3 py-1 rounded-lg text-[12px] font-bold bg-slate-100 text-slate-600">
-                {t("pricing.free.name")}
-              </span>
-              <p className="text-slate-400 text-[13px] mt-2">{t("pricing.free.desc")}</p>
-            </div>
-            <div className="flex items-end gap-1.5 mb-7" dir="ltr">
-              <span className="text-[52px] font-black leading-none text-slate-900">0</span>
-              <span className="text-slate-400 text-[14px] mb-1">{t("pricing.currency")}/mo</span>
-            </div>
-            <button onClick={onTool}
-              className="w-full py-3.5 rounded-xl font-bold text-[15px] text-white mb-7 transition-all"
-              style={{ background:C.ink }}
-              onMouseEnter={e => (e.currentTarget.style.background = "#1e293b")}
-              onMouseLeave={e => (e.currentTarget.style.background = C.ink)}>
-              {t("pricing.cta")}
-            </button>
-            <ul className="space-y-3.5 flex-1">
-              {(["f1","f2","f3","f4"] as const).map(f => (
-                <li key={f} className="flex items-start gap-3 text-[14px] text-slate-600">
-                  <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-emerald-500"/>
-                  {t(`pricing.free.${f}`)}
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-
-          {/* PRO */}
-          <motion.div initial={{ opacity:0, y:24 }} animate={v?{opacity:1,y:0}:{}} transition={{ delay:0.26 }}
-            className="flex flex-col rounded-2xl p-8 relative overflow-hidden"
-            style={{ background:C.blue, boxShadow:`0 24px 60px rgba(0,102,255,0.24)` }}>
-            <div className="absolute -top-px inset-x-0 flex justify-center">
-              <span className="inline-flex items-center gap-1.5 px-5 py-1.5 rounded-b-2xl text-[11px] font-black text-amber-900"
-                style={{ background:"#FBBF24" }}>
-                <Star size={10} fill="currentColor"/>
-                {t("pricing.popular")}
-              </span>
-            </div>
-            <div className="mt-7 mb-7">
-              <span className="inline-flex px-3 py-1 rounded-lg text-[12px] font-bold bg-blue-500 text-white">
-                {t("pricing.pro.name")}
-              </span>
-              <p className="text-blue-200 text-[13px] mt-2">{t("pricing.pro.desc")}</p>
-            </div>
-            <div className="flex items-end gap-1.5 mb-7" dir="ltr">
-              <span className="text-[52px] font-black leading-none text-white">
-                {yr ? t("pricing.pro.priceYear") : t("pricing.pro.price")}
-              </span>
-              <span className="text-blue-200 text-[14px] mb-1">{t("pricing.currency")}/mo</span>
-            </div>
-            <a href="/pro/"
-              className="w-full py-3.5 rounded-xl font-bold text-[15px] text-center block mb-7 transition-all"
-              style={{ background:C.white, color:C.blue }}
-              onMouseEnter={e => (e.currentTarget.style.background = C.blueLt)}
-              onMouseLeave={e => (e.currentTarget.style.background = C.white)}>
-              {t("pricing.ctaPro")}
-            </a>
-            <ul className="space-y-3.5 flex-1">
-              {(["f1","f2","f3","f4","f5","f6"] as const).map(f => (
-                <li key={f} className="flex items-start gap-3 text-[14px] text-blue-100">
-                  <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-blue-300"/>
-                  {t(`pricing.pro.${f}`)}
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-        </div>
-
-        {/* trust row */}
-        <motion.div initial={{ opacity:0 }} animate={v?{opacity:1}:{}} transition={{ delay:0.45 }}
-          className="flex flex-wrap justify-center gap-8 mt-10">
-          {[
-            [Shield,"SSL Secured"],
-            [CheckCircle2,"Cancel Anytime"],
-            [Star,"No credit card"],
-          ].map(([Icon,lbl],i) => {
-            const I = Icon as typeof Shield;
-            return (
-              <span key={i} className="flex items-center gap-2 text-[13px] text-slate-400">
-                <I size={14}/>{lbl as string}
-              </span>
-            );
-          })}
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-
-/* ═══ FAQ ════════════════════════════════════════════ */
-function FAQ() {
-  const { t } = useTranslation();
-  const lang = useLang();
-  const [open, setOpen] = useState<number|null>(null);
-  const isRtl = lang.dir === "rtl";
-  const { ref, v } = useInView();
-
-  return (
-    <section id="faq" ref={ref} className="py-24 px-8" style={{ background:C.white }}>
-      <div className="max-w-[1280px] mx-auto">
-        <div className="grid lg:grid-cols-[380px_1fr] gap-16 items-start">
-
-          {/* left/start — sticky title */}
-          <motion.div initial={{ opacity:0, x:isRtl?12:-12 }} animate={v?{opacity:1,x:0}:{}}
-            className={isRtl ? "lg:order-2 text-end" : "lg:order-1 text-start"}>
-            <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color:C.blue }}>FAQ</p>
-            <h2 className="font-black text-slate-900 mb-4" style={{ fontSize:"clamp(1.8rem,3vw,2.8rem)" }}>
-              {t("faq.title")}
-            </h2>
-            <p className="text-slate-500 text-[16px] leading-relaxed">{t("faq.subtitle")}</p>
-          </motion.div>
-
-          {/* right/end — accordion */}
-          <motion.div initial={{ opacity:0 }} animate={v?{opacity:1}:{}} transition={{ delay:0.1 }}
-            className={isRtl ? "lg:order-1" : "lg:order-2"}>
-            <div className="space-y-2">
-              {Array.from({length:6},(_,i)=>i).map(i => (
-                <div key={i}
-                  className={`border rounded-2xl bg-white overflow-hidden cursor-pointer transition-all
-                    ${open===i ? "border-blue-200 shadow-sm" : "border-slate-200 hover:border-slate-300"}`}
-                  onClick={() => setOpen(open===i ? null : i)}>
-                  <div className={`flex items-center gap-4 px-6 py-4.5 py-[18px] ${isRtl ? "flex-row-reverse" : ""}`}>
-                    <p className={`flex-1 text-[14px] font-semibold ${open===i ? "text-blue-700" : "text-slate-800"} ${isRtl ? "text-end" : "text-start"}`}>
-                      {t(`faq.q${i+1}`)}
-                    </p>
-                    <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center transition-all
-                      ${open===i ? "bg-blue-600" : "bg-slate-100"}`}>
-                      {open===i ? <Minus size={13} className="text-white"/> : <Plus size={13} className="text-slate-500"/>}
-                    </div>
-                  </div>
-                  <AnimatePresence>
-                    {open===i && (
-                      <motion.div initial={{ height:0 }} animate={{ height:"auto" }} exit={{ height:0 }}
-                        transition={{ duration:0.2 }} className="overflow-hidden">
-                        <p className={`px-6 pb-5 text-[14px] text-slate-600 leading-relaxed border-t border-slate-100 pt-4 ${isRtl ? "text-end" : "text-start"}`}>
-                          {t(`faq.a${i+1}`)}
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ═══ CTA BANNER ════════════════════════════════════ */
-function CTABanner({ onTool }: { onTool: () => void }) {
+function Features() {
   const { t, i18n } = useTranslation();
   const lang = useLang();
-  const COPY: Record<string,{h:string;sub:string}> = {
-    ar: { h:"ابدأ مجاناً اليوم", sub:"لا حاجة لبطاقة ائتمان. أنشئ بطاقتك الأولى في أقل من دقيقة." },
-    en: { h:"Start for free today", sub:"No credit card required. Create your first card in under a minute." },
-    fr: { h:"Commencez gratuitement", sub:"Sans carte bancaire. Créez votre première carte en moins d'une minute." },
-  };
-  const cp = COPY[i18n.language] ?? COPY.ar;
+  const { ref, v } = useInView();
+
+  const title = i18n.language === "ar" ? "كل ما تحتاجه لغرفة الأخبار الرقمية"
+    : i18n.language === "fr" ? "Tout ce dont vous avez besoin"
+    : "Everything your digital newsroom needs";
 
   return (
-    <section className="py-20 px-8 border-t border-slate-100" style={{ background:C.bg }}>
+    <section
+      id="features"
+      ref={ref as React.RefObject<HTMLElement>}
+      className="py-24 px-6"
+      style={{ background: D.lightBg, fontFamily: lang.font }}
+    >
       <div className="max-w-[1280px] mx-auto">
-        <div className="relative rounded-3xl overflow-hidden px-10 sm:px-20 py-20 text-center"
-          style={{ background:`linear-gradient(135deg,#003D99 0%,${C.blue} 60%,#4D94FF 100%)` }}>
-          <div className="absolute inset-0 pointer-events-none opacity-[0.05]"
-            style={{
-              backgroundImage:"radial-gradient(circle,white 1px,transparent 1px)",
-              backgroundSize:"28px 28px",
-            }}/>
-          <div className="absolute -top-20 -end-20 w-72 h-72 rounded-full opacity-10"
-            style={{ border:"40px solid white" }}/>
-          <div className="absolute -bottom-12 -start-12 w-48 h-48 rounded-full opacity-10"
-            style={{ border:"28px solid white" }}/>
-          <div className="relative">
-            <h2 className="font-black text-white mb-5"
-              style={{ fontFamily:lang.font, fontSize:"clamp(1.8rem,3.5vw,3rem)" }}>
-              {cp.h}
-            </h2>
-            <p className="text-blue-100 mb-10 mx-auto max-w-md leading-relaxed"
-              style={{ fontSize:"clamp(15px,1.8vw,17px)" }}>
-              {cp.sub}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              <button onClick={onTool}
-                className="px-9 py-4 rounded-xl font-bold text-[15px] transition-all"
-                style={{ background:C.white, color:C.blue, boxShadow:"0 4px 24px rgba(0,0,0,0.14)" }}
-                onMouseEnter={e => (e.currentTarget.style.background = C.blueLt)}
-                onMouseLeave={e => (e.currentTarget.style.background = C.white)}>
-                {t("hero.cta")}
-              </button>
-              <a href="/pro/"
-                className="px-9 py-4 rounded-xl font-semibold text-[15px] text-white border-2 border-white/30 hover:border-white/60 transition-all">
-                {i18n.language==="ar" ? "لوحة التحكم" : i18n.language==="fr" ? "Tableau de bord" : "Dashboard"} →
-              </a>
-            </div>
-          </div>
+        <motion.h2
+          initial={{ opacity: 0, y: 16 }} animate={v ? { opacity: 1, y: 0 } : {}}
+          className="text-center font-black text-slate-900 mb-14"
+          style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.8rem)" }}>
+          {title}
+        </motion.h2>
+
+        <div className="grid sm:grid-cols-3 gap-6">
+          {FEAT_DATA.map(({ icon: Icon, key }, i) => (
+            <motion.div key={key}
+              initial={{ opacity: 0, y: 24 }} animate={v ? { opacity: 1, y: 0 } : {}} transition={{ delay: i * 0.1 }}
+              className="bg-white rounded-2xl p-8 text-center"
+              style={{ border: `1px solid ${D.borderL}` }}>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-5"
+                style={{ background: "rgba(229,36,58,0.08)" }}>
+                <Icon size={24} style={{ color: D.red }} />
+              </div>
+              <h3 className="font-bold text-slate-900 text-[17px] mb-3">{t(`features.${key}.title`)}</h3>
+              <p className="text-slate-500 text-[14px] leading-relaxed">{t(`features.${key}.desc`)}</p>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-/* ═══ FOOTER ═════════════════════════════════════════ */
-function Footer({ onTool }: { onTool: () => void }) {
-  const { t } = useTranslation();
-  const sc = (id:string) => document.getElementById(id)?.scrollIntoView({ behavior:"smooth" });
+/* ══════════════════════════════════════════════════════════ */
+/* HOW IT WORKS — light bg, numbered circles + dashes        */
+/* ══════════════════════════════════════════════════════════ */
+function HowItWorks({ onTool }: { onTool: () => void }) {
+  const { t, i18n } = useTranslation();
+  const lang = useLang();
+  const { ref, v } = useInView();
+
+  const title = i18n.language === "ar" ? "كيف تعمل الأداة؟"
+    : i18n.language === "fr" ? "Comment ça marche ?"
+    : "How does it work?";
+
+  const steps = [
+    { n: 1, label: t("howItWorks.step1.title") },
+    { n: 2, label: t("howItWorks.step2.title") },
+    { n: 3, label: t("howItWorks.step3.title") },
+  ];
 
   return (
-    <footer style={{ background:C.ink }}>
-      <div className="max-w-[1280px] mx-auto px-8 py-16">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-12 mb-14">
-          <div className="sm:col-span-2">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background:C.blue }}>
-                <Newspaper size={16} className="text-white"/>
+    <section
+      id="how"
+      ref={ref as React.RefObject<HTMLElement>}
+      className="py-24 px-6"
+      style={{ background: D.white, fontFamily: lang.font }}
+    >
+      <div className="max-w-[900px] mx-auto">
+        <motion.h2
+          initial={{ opacity: 0, y: 16 }} animate={v ? { opacity: 1, y: 0 } : {}}
+          className="text-center font-black text-slate-900 mb-16"
+          style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.8rem)" }}>
+          {title}
+        </motion.h2>
+
+        {/* steps row */}
+        <div className="flex items-start justify-center gap-0">
+          {steps.map((s, i) => (
+            <div key={s.n} className="flex items-center">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }} animate={v ? { opacity: 1, y: 0 } : {}} transition={{ delay: i * 0.12 }}
+                className="flex flex-col items-center w-36 sm:w-44">
+                {/* circle */}
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center font-black text-[20px] mb-5 border-2"
+                  style={{ color: D.red, borderColor: D.red, background: "transparent" }}>
+                  {s.n}
+                </div>
+                <p className="text-center font-bold text-slate-800 text-[15px] sm:text-[16px]">{s.label}</p>
+              </motion.div>
+
+              {/* dash between — not after last */}
+              {i < steps.length - 1 && (
+                <div className="flex-1 h-px mx-2 mb-10" style={{ background: D.borderL, minWidth: "40px" }} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════ */
+/* PRICING — dark bg, 3 cards, center highlighted             */
+/* ══════════════════════════════════════════════════════════ */
+function Pricing() {
+  const { t, i18n } = useTranslation();
+  const lang = useLang();
+  const { ref, v } = useInView();
+
+  const title = i18n.language === "ar" ? "خطط تناسب جميع الاحتياجات"
+    : i18n.language === "fr" ? "Des plans pour tous les besoins"
+    : "Plans for every need";
+
+  const plans = [
+    {
+      key: "pro",
+      name: i18n.language === "ar" ? "برو" : "Pro",
+      price: "49",
+      popular: false,
+      features: [
+        "Everything in Basic",
+        "Custom logos",
+        "API access",
+        "Team collaboration",
+      ],
+    },
+    {
+      key: "basic",
+      name: i18n.language === "ar" ? "أساسي" : i18n.language === "fr" ? "Basique" : "Basic",
+      price: "15",
+      popular: true,
+      features: [
+        "All templates",
+        "High resolution",
+        "No watermark",
+        "Custom colors",
+      ],
+    },
+    {
+      key: "free",
+      name: i18n.language === "ar" ? "مجاني" : i18n.language === "fr" ? "Gratuit" : "Free",
+      price: "0",
+      popular: false,
+      features: [
+        "Basic templates",
+        "Standard quality",
+        "Watermarked",
+      ],
+    },
+  ];
+
+  const cta = i18n.language === "ar" ? "اشترك الآن" : i18n.language === "fr" ? "S'abonner" : "Subscribe now";
+  const perMonth = i18n.language === "ar" ? "/ شهر" : i18n.language === "fr" ? "/ mois" : "/ mo";
+
+  return (
+    <section
+      id="pricing"
+      ref={ref as React.RefObject<HTMLElement>}
+      className="py-24 px-6"
+      style={{ background: D.bg, fontFamily: lang.font }}
+    >
+      <div className="max-w-[1280px] mx-auto">
+        <motion.h2
+          initial={{ opacity: 0, y: 16 }} animate={v ? { opacity: 1, y: 0 } : {}}
+          className="text-center font-black text-white mb-12"
+          style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.8rem)" }}>
+          {title}
+        </motion.h2>
+
+        <div className="grid sm:grid-cols-3 gap-4 max-w-[900px] mx-auto items-start">
+          {plans.map((plan, i) => (
+            <motion.div key={plan.key}
+              initial={{ opacity: 0, y: 28 }} animate={v ? { opacity: 1, y: 0 } : {}} transition={{ delay: i * 0.1 }}
+              className="relative rounded-2xl p-6 flex flex-col"
+              style={{
+                background: D.card,
+                border: plan.popular ? `1.5px solid ${D.red}` : `1px solid ${D.border}`,
+                boxShadow: plan.popular ? `0 0 40px rgba(229,36,58,0.15)` : "none",
+              }}>
+
+              {/* MOST POPULAR badge */}
+              {plan.popular && (
+                <div className="absolute -top-4 inset-x-0 flex justify-center">
+                  <span
+                    className="px-5 py-1.5 rounded-full text-[11px] font-black text-white uppercase tracking-widest"
+                    style={{ background: D.red }}>
+                    MOST POPULAR
+                  </span>
+                </div>
+              )}
+
+              {/* Plan name */}
+              <h3 className="font-bold text-white text-[18px] mb-1 mt-2">{plan.name}</h3>
+
+              {/* Price */}
+              <div className="flex items-end gap-1.5 mb-6" dir="ltr">
+                <span className="font-black text-white" style={{ fontSize: "clamp(2.2rem,4vw,3rem)" }}>
+                  ${plan.price}
+                </span>
+                {plan.price !== "0" && (
+                  <span className="text-[14px] mb-1.5" style={{ color: D.muted }}>{perMonth}</span>
+                )}
               </div>
-              <span className="font-extrabold text-white text-[16px]">
-                NewsCard<span style={{ color:"#93C5FD" }}> Pro</span>
+
+              {/* Features */}
+              <ul className="space-y-3 mb-7 flex-1" dir="ltr">
+                {plan.features.map(f => (
+                  <li key={f} className="flex items-center gap-2.5 text-[14px]" style={{ color: "#CBD5E1" }}>
+                    <Check size={14} style={{ color: D.red, flexShrink: 0 }} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              <a href={plan.key === "free" ? "#" : "/pro/"}
+                onClick={plan.key === "free" ? (e) => { e.preventDefault(); } : undefined}
+                className="w-full py-3 rounded-xl font-bold text-[14px] text-center block transition-all"
+                style={plan.popular
+                  ? { background: D.red, color: D.white }
+                  : { background: "transparent", border: `1.5px solid rgba(255,255,255,0.15)`, color: D.white }}
+                onMouseEnter={e => {
+                  if (plan.popular) e.currentTarget.style.background = D.redHov;
+                  else e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)";
+                }}
+                onMouseLeave={e => {
+                  if (plan.popular) e.currentTarget.style.background = D.red;
+                  else e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                }}>
+                {cta}
+              </a>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════ */
+/* FOOTER — light bg                                         */
+/* ══════════════════════════════════════════════════════════ */
+function Footer({ onTool }: { onTool: () => void }) {
+  const { i18n } = useTranslation();
+  const lang = useLang();
+
+  const productLinks = [
+    { label: "Home",          href: "/" },
+    { label: "Free Tool",     onClick: onTool },
+    { label: "Pro Dashboard", href: "/pro/" },
+  ];
+  const legalLinks = [
+    { label: "Privacy Policy", href: "#" },
+    { label: "Terms of Service", href: "#" },
+  ];
+
+  return (
+    <footer style={{ background: D.white, borderTop: `1px solid ${D.borderL}`, fontFamily: lang.font }}>
+      <div className="max-w-[1280px] mx-auto px-6 pt-16 pb-8">
+
+        <div className="grid sm:grid-cols-3 gap-10 mb-14">
+          {/* Brand */}
+          <div>
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-[15px]"
+                style={{ background: D.red }}>
+                ن
+              </div>
+              <span className="font-extrabold text-slate-900 text-[15px]">
+                {i18n.language === "ar" ? "مولّد البطاقات" : "NewsCard"}
               </span>
             </div>
-            <p className="text-slate-400 text-[14px] leading-relaxed max-w-xs mb-6">{t("footer.desc")}</p>
-            <LangPicker dark/>
+            <p className="text-slate-500 text-[14px] leading-relaxed max-w-[220px]">
+              {i18n.language === "ar"
+                ? "أداة ساس الأقوى للصحفيين والفرق الإعلامية لتوليد صور بطاقات إخبارية فورية وموثوقة."
+                : i18n.language === "fr"
+                ? "L'outil SaaS pour générer des cartes d'actualités arabes instantanément."
+                : "The most powerful SaaS for journalists to generate Arabic news cards instantly."}
+            </p>
           </div>
+
+          {/* Product */}
           <div>
-            <p className="text-white text-[11px] font-bold uppercase tracking-widest mb-5">{t("footer.product")}</p>
+            <p className="font-bold text-slate-900 text-[14px] mb-5">
+              {i18n.language === "ar" ? "المنتج" : i18n.language === "fr" ? "Produit" : "Product"}
+            </p>
             <ul className="space-y-3">
-              <li><button onClick={onTool} className="text-slate-400 hover:text-white text-[14px] transition-colors">{t("footer.tool")}</button></li>
-              <li><a href="/pro/" className="text-slate-400 hover:text-white text-[14px] transition-colors">{t("footer.dashboard")}</a></li>
-              <li><button onClick={() => sc("pricing")} className="text-slate-400 hover:text-white text-[14px] transition-colors">{t("footer.pricing")}</button></li>
+              {productLinks.map(l => (
+                <li key={l.label}>
+                  {l.href
+                    ? <a href={l.href} className="text-slate-500 hover:text-slate-900 text-[14px] transition-colors">{l.label}</a>
+                    : <button onClick={l.onClick} className="text-slate-500 hover:text-slate-900 text-[14px] transition-colors">{l.label}</button>
+                  }
+                </li>
+              ))}
             </ul>
           </div>
+
+          {/* Legal */}
           <div>
-            <p className="text-white text-[11px] font-bold uppercase tracking-widest mb-5">{t("footer.company")}</p>
+            <p className="font-bold text-slate-900 text-[14px] mb-5">Legal</p>
             <ul className="space-y-3">
-              <li><a href="#" className="text-slate-400 hover:text-white text-[14px] transition-colors">{t("footer.about")}</a></li>
-              <li><a href="#" className="text-slate-400 hover:text-white text-[14px] transition-colors">{t("footer.contact")}</a></li>
+              {legalLinks.map(l => (
+                <li key={l.label}>
+                  <a href={l.href} className="text-slate-500 hover:text-slate-900 text-[14px] transition-colors">{l.label}</a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
-        <div className="border-t border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span className="text-[13px] text-slate-500">© {new Date().getFullYear()} NewsCard Pro. {t("footer.rights")}.</span>
-          <span className="text-[13px] text-slate-600" dir="ltr">React · Vite · Express · PostgreSQL</span>
+
+        {/* Copyright */}
+        <div className="border-t pt-6 text-center" style={{ borderColor: D.borderL }}>
+          <p className="text-slate-400 text-[13px]" dir="ltr">
+            News Card Generator. All rights reserved {new Date().getFullYear()} ©
+          </p>
         </div>
       </div>
     </footer>
   );
 }
 
-/* ═══ ROOT ═══════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════ */
+/* ROOT                                                       */
+/* ══════════════════════════════════════════════════════════ */
 export default function Landing({ onOpenTool }: { onOpenTool: () => void }) {
   const lang = useLang();
   useEffect(() => { applyLang(lang); }, [lang]);
 
   return (
-    <div style={{ fontFamily:lang.font, background:C.white, color:C.ink }}
-      className="min-h-screen antialiased overflow-x-hidden">
-      <Navbar onTool={onOpenTool}/>
-      <div style={{ height:"68px" }} aria-hidden/>
+    <div style={{ fontFamily: lang.font }} className="antialiased overflow-x-hidden">
+      <Navbar onTool={onOpenTool} />
+      {/* no spacer — hero is full-screen and handles its own padding */}
       <main>
-        <Hero       onTool={onOpenTool}/>
-        <Logos/>
-        <Features/>
-        <MultiLang/>
-        <HowItWorks onTool={onOpenTool}/>
-        <Pricing    onTool={onOpenTool}/>
-        <FAQ/>
-        <CTABanner  onTool={onOpenTool}/>
+        <Hero       onTool={onOpenTool} />
+        <Features />
+        <HowItWorks onTool={onOpenTool} />
+        <Pricing />
       </main>
-      <Footer onTool={onOpenTool}/>
+      <Footer onTool={onOpenTool} />
     </div>
   );
 }
