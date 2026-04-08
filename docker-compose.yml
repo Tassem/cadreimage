@@ -4,14 +4,16 @@ version: "3.9"
 # News Card Generator Pro — Docker Compose
 #
 # Services:
-#   postgres          PostgreSQL 16
-#   api               Express 5 API + Playwright/Chromium  :8080
-#   frontend-gen      Free card generator (nginx)          :3000
-#   frontend-pro      Pro dashboard (nginx)                :3001
+#   postgres            PostgreSQL 16
+#   api                 Express 5 API + Playwright/Chromium  :8080
+#   frontend-generator  Free card generator (nginx)          :3000
+#   frontend-pro        Pro dashboard (nginx)                :3001
 #
 # Quick start:
-#   cp .env.example .env   # fill in your secrets
-#   docker-compose up -d
+#   cp .env.example .env     # fill in your secrets
+#   docker-compose up -d --build
+#   DATABASE_URL=postgresql://newscard:changeme@localhost:5432/newscard \
+#     pnpm --filter @workspace/db run push
 # ============================================================
 
 services:
@@ -27,6 +29,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -64,7 +67,7 @@ services:
   # ----------------------------------------------------------
   # Free Generator Frontend
   # ----------------------------------------------------------
-  frontend-gen:
+  frontend-generator:
     build:
       context: .
       dockerfile: Dockerfile

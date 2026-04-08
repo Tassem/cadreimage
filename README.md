@@ -529,7 +529,7 @@ docker-compose up -d --build
 # 4. طبّق schema قاعدة البيانات (مرة واحدة عند أول تشغيل)
 # من مجلد المشروع على جهازك المحلي (ليس داخل Docker):
 DATABASE_URL=postgresql://newscard:changeme@localhost:5432/newscard \
-  pnpm --filter @workspace/db run db:push
+  pnpm --filter @workspace/db run push
 ```
 
 | الخدمة | URL |
