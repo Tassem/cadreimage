@@ -6,6 +6,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue)](https://www.postgresql.org)
 [![pnpm](https://img.shields.io/badge/pnpm-workspace-orange)](https://pnpm.io)
+[![Docker](https://img.shields.io/badge/Docker-ready-blue)](https://www.docker.com)
+
+**GitHub:** https://github.com/Tassem/news-card-generator-pro
 
 ---
 
@@ -481,8 +484,8 @@ App.tsx (Wouter Router بـ base="/pro/")
 
 ```bash
 # 1. نسخ المشروع
-git clone https://github.com/Tassem/newproject
-cd newproject
+git clone https://github.com/Tassem/news-card-generator-pro
+cd news-card-generator-pro
 
 # 2. تثبيت جميع الـ dependencies
 pnpm install
@@ -509,16 +512,41 @@ pnpm --filter @workspace/news-card-generator run dev # http://localhost:3000
 pnpm --filter @workspace/news-card-pro run dev       # http://localhost:3001
 ```
 
-### تشغيل بـ Docker Compose
+### تشغيل بـ Docker Compose (الأسرع)
 
 ```bash
-docker-compose up -d
+# 1. استنسخ المشروع
+git clone https://github.com/Tassem/news-card-generator-pro
+cd news-card-generator-pro
 
-# الخدمات:
-# http://localhost:3000  → الأداة المجانية
-# http://localhost:3001  → لوحة Pro
-# http://localhost:8080  → API
-# localhost:5432         → PostgreSQL
+# 2. أعدّ متغيرات البيئة
+cp .env.example .env
+# عدّل .env وأضف أسرارك
+
+# 3. ابن وشغّل كل الخدمات دفعة واحدة
+docker-compose up -d --build
+
+# 4. طبّق migrations قاعدة البيانات (مرة واحدة عند أول تشغيل)
+docker-compose exec api sh -c "node -e \"
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+pool.query('SELECT 1').then(() => { console.log('DB connected'); pool.end(); });
+\""
+```
+
+| الخدمة | URL |
+|--------|-----|
+| الأداة المجانية | http://localhost:3000 |
+| لوحة Pro | http://localhost:3001/pro/ |
+| REST API | http://localhost:8080/api/health |
+| PostgreSQL | postgresql://localhost:5432/newscard |
+
+```bash
+# أوامر مفيدة
+docker-compose logs -f api          # تتبع logs الـ API
+docker-compose down                  # إيقاف كل الخدمات
+docker-compose down -v               # إيقاف + حذف البيانات (تحذير!)
+docker-compose build --no-cache      # إعادة البناء من الصفر
 ```
 
 ### حسابات الاختبار الجاهزة
