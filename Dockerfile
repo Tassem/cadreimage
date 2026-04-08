@@ -98,7 +98,7 @@ RUN mkdir -p artifacts/api-server/uploads
 
 EXPOSE 8080
 
-CMD ["node", "artifacts/api-server/dist/index.js"]
+CMD ["node", "artifacts/api-server/dist/index.mjs"]
 
 # ============================================================
 # PRODUCTION IMAGE: Free Generator (nginx)
@@ -106,7 +106,7 @@ CMD ["node", "artifacts/api-server/dist/index.js"]
 FROM nginx:alpine AS frontend-gen
 
 COPY nginx/generator.conf /etc/nginx/conf.d/default.conf
-COPY --from=build-gen /app/artifacts/news-card-generator/dist/public /usr/share/nginx/html
+COPY --from=build-gen /app/artifacts/news-card-generator/dist/public /usr/share/nginx/html/public
 
 EXPOSE 80
 
@@ -116,6 +116,6 @@ EXPOSE 80
 FROM nginx:alpine AS frontend-pro
 
 COPY nginx/pro.conf /etc/nginx/conf.d/default.conf
-COPY --from=build-pro /app/artifacts/news-card-pro/dist/public /usr/share/nginx/html
+COPY --from=build-pro /app/artifacts/news-card-pro/dist/public /usr/share/nginx/html/public
 
 EXPOSE 80

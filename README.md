@@ -526,12 +526,10 @@ cp .env.example .env
 # 3. ابن وشغّل كل الخدمات دفعة واحدة
 docker-compose up -d --build
 
-# 4. طبّق migrations قاعدة البيانات (مرة واحدة عند أول تشغيل)
-docker-compose exec api sh -c "node -e \"
-const { Pool } = require('pg');
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-pool.query('SELECT 1').then(() => { console.log('DB connected'); pool.end(); });
-\""
+# 4. طبّق schema قاعدة البيانات (مرة واحدة عند أول تشغيل)
+# من مجلد المشروع على جهازك المحلي (ليس داخل Docker):
+DATABASE_URL=postgresql://newscard:changeme@localhost:5432/newscard \
+  pnpm --filter @workspace/db run db:push
 ```
 
 | الخدمة | URL |
