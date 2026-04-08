@@ -116,6 +116,8 @@ EXPOSE 80
 FROM nginx:alpine AS frontend-pro
 
 COPY nginx/pro.conf /etc/nginx/conf.d/default.conf
-COPY --from=build-pro /app/artifacts/news-card-pro/dist/public /usr/share/nginx/html/public
+# Copy built assets into /public/pro/ so nginx root+location resolves correctly:
+# root = /usr/share/nginx/html/public, location = /pro/ → files at /public/pro/
+COPY --from=build-pro /app/artifacts/news-card-pro/dist/public /usr/share/nginx/html/public/pro
 
 EXPOSE 80
