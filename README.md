@@ -8,7 +8,7 @@
 [![pnpm](https://img.shields.io/badge/pnpm-workspace-orange)](https://pnpm.io)
 [![Docker](https://img.shields.io/badge/Docker-ready-blue)](https://www.docker.com)
 
-**GitHub:** https://github.com/Tassem/news-card-generator-pro
+**GitHub:** https://github.com/Tassem/cadreimage
 
 ---
 
@@ -484,8 +484,8 @@ App.tsx (Wouter Router بـ base="/pro/")
 
 ```bash
 # 1. نسخ المشروع
-git clone https://github.com/Tassem/news-card-generator-pro
-cd news-card-generator-pro
+git clone https://github.com/Tassem/cadreimage
+cd cadreimage
 
 # 2. تثبيت جميع الـ dependencies
 pnpm install
@@ -516,8 +516,8 @@ pnpm --filter @workspace/news-card-pro run dev       # http://localhost:3001
 
 ```bash
 # 1. استنسخ المشروع
-git clone https://github.com/Tassem/news-card-generator-pro
-cd news-card-generator-pro
+git clone https://github.com/Tassem/cadreimage
+cd cadreimage
 
 # 2. أعدّ متغيرات البيئة
 cp .env.example .env
