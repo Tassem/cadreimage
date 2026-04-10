@@ -1,7 +1,7 @@
 import { useGetStats, getGetStatsQueryKey, useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Image as ImageIcon, Layers, Target, Clock } from "lucide-react";
+import { Image as ImageIcon, Layers, Target, Clock, KeySquare } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 
@@ -62,7 +62,7 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">بطاقات اليوم</CardTitle>
@@ -109,6 +109,21 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
+
+        {(user?.planDetails?.telegramBot || user?.isAdmin) && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-primary">رمز البوت السري</CardTitle>
+              <KeySquare className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-mono font-bold tracking-wider text-primary">
+                {user?.botCode || "لم يحدد"}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">يُرجى إرساله للبوت: `رقم حساب : {user?.botCode}`</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
       
       <div className="grid gap-4 md:grid-cols-2">

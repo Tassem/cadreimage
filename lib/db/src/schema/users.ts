@@ -12,6 +12,7 @@ export const usersTable = pgTable("users", {
   imagesToday: integer("images_today").notNull().default(0),
   lastResetDate: text("last_reset_date").notNull().default(""),
   isAdmin: boolean("is_admin").notNull().default(false),
+  botCode: text("bot_code").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

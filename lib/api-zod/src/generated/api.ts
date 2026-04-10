@@ -57,6 +57,9 @@ export const GetMeResponse = zod.object({
   apiKey: zod.string(),
   imagesToday: zod.number(),
   createdAt: zod.coerce.date(),
+  isAdmin: zod.boolean().optional(),
+  planDetails: zod.any().optional(),
+  botCode: zod.string().optional(),
 });
 
 /**

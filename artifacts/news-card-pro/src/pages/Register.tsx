@@ -36,7 +36,7 @@ export default function Register() {
     register(
       { data: values },
       {
-        onSuccess: (data) => {
+        onSuccess: (data: any) => {
           localStorage.setItem("pro_token", data.token);
           setLocation("/dashboard");
           toast({

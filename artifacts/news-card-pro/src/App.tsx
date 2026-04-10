@@ -36,11 +36,7 @@ function Router() {
       <Route path="/register" component={Register} />
       
       <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
-      <Route path="/generate">
-        <AuthGuard>
-          <Generate />
-        </AuthGuard>
-      </Route>
+      <Route path="/generate"><ProtectedRoute component={Generate} /></Route>
       <Route path="/history"><ProtectedRoute component={History} /></Route>
       <Route path="/templates"><ProtectedRoute component={Templates} /></Route>
       <Route path="/keys"><ProtectedRoute component={Keys} /></Route>

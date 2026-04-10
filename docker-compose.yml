@@ -25,7 +25,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - 5432:5432
+      - 5433:5432
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U newscard"]
       interval: 5s
@@ -48,32 +48,21 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       CHROMIUM_PATH: /usr/bin/chromium-browser
     ports:
-      - 8080:8080
+      - 8082:8080
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
-      - uploads:/app/artifacts/api-server/uploads
+      - uploads:/app/uploads
 
-  frontend-generator:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile
-      target: frontend-gen
+      target: frontend
     restart: unless-stopped
     ports:
-      - 3000:80
-    depends_on:
-      - api
-
-  frontend-pro:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: frontend-pro
-    restart: unless-stopped
-    ports:
-      - 3001:80
+      - 8085:80
     depends_on:
       - api
 

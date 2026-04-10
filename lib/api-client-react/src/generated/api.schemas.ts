@@ -33,6 +33,9 @@ export interface UserProfile {
   apiKey: string;
   imagesToday: number;
   createdAt: string;
+  isAdmin?: boolean;
+  planDetails?: any;
+  botCode?: string;
 }
 
 export interface AuthResponse {

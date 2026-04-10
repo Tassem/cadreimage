@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, systemSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { requireAdmin } from "../middlewares/admin";
 import { startBotWithToken } from "../bot";
 
 const router: IRouter = Router();
@@ -18,7 +19,7 @@ async function setSetting(key: string, value: string): Promise<void> {
     .onConflictDoUpdate({ target: systemSettingsTable.key, set: { value, updatedAt: new Date() } });
 }
 
-router.get("/settings/telegram", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+router.get("/settings/telegram", requireAdmin, async (req: AuthRequest, res): Promise<void> => {
   const token = await getSetting("telegram_bot_token");
   const hasToken = !!(process.env.TELEGRAM_BOT_TOKEN || token);
   let botUsername: string | null = null;
@@ -45,7 +46,7 @@ router.get("/settings/telegram", requireAuth, async (req: AuthRequest, res): Pro
   });
 });
 
-router.put("/settings/telegram", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+router.put("/settings/telegram", requireAdmin, async (req: AuthRequest, res): Promise<void> => {
   const { token } = req.body as { token?: string };
   if (!token || typeof token !== "string" || token.trim().length < 20) {
     res.status(400).json({ error: "توكن غير صالح" });

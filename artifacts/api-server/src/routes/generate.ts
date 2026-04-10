@@ -62,6 +62,8 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     return;
   }
 
+  const limits = await getPlanLimits(user.plan);
+
   const parsed = GenerateImageBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -199,6 +201,14 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
     backgroundImagePath = await downloadUrlToFile(String(rawBody.backgroundImageUrl), "bg");
   }
 
+  // RESTRICITION: Overlay Upload (Check plan)
+  const overlayFilename = safeFilename(rawBody.overlayPhotoFilename);
+  const overlayUrlInput = rawBody.overlayImageUrl ? String(rawBody.overlayImageUrl) : null;
+  if ((overlayFilename || (overlayUrlInput && !overlayUrlInput.startsWith("/api/"))) && !limits.overlayUpload && !user.isAdmin) {
+    res.status(403).json({ error: "شعار إضافي (Overlay) متاح في الباقات المتقدمة فقط. يرجى الترقية." });
+    return;
+  }
+
   // Resolve logo: file upload (filename) OR remote URL
   const logoFilename = safeFilename(rawBody.logoPhotoFilename);
   let logoImagePath: string | null = logoFilename ? `${path.resolve("uploads")}/${logoFilename}` : null;
@@ -207,7 +217,6 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
   }
 
   // Resolve custom overlay: file upload OR remote URL OR template overlayUrl
-  const overlayFilename = safeFilename(rawBody.overlayPhotoFilename);
   let overlayImagePath: string | null = overlayFilename ? `${path.resolve("uploads")}/${overlayFilename}` : null;
   if (!overlayImagePath && rawBody.overlayImageUrl) {
     const rawOverlayUrl = String(rawBody.overlayImageUrl);
@@ -271,6 +280,12 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res): Promise<voi
   const watermarkOpacity = rawBody.watermarkOpacity !== undefined
     ? Number(rawBody.watermarkOpacity)
     : templateOverrides.watermarkOpacity;
+
+  // RESTRICTION: Custom Watermark (Check plan)
+  if (watermarkText && !limits.customWatermark && !user.isAdmin) {
+    res.status(403).json({ error: "العلامة المائية المخصصة متاحة في الباقات الاحترافية فقط. يرجى الترقية." });
+    return;
+  }
 
   // Generate image
   const { fileName, fileSize } = await generateCard({

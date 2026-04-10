@@ -5,7 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Bot, RefreshCw, Eye, EyeOff, Trash2 } from "lucide-react";
+import {
+  CheckCircle, XCircle, Bot, RefreshCw, Eye, EyeOff, Trash2,
+  Copy, ExternalLink, BookOpen, Zap, Layers, Hash, ImageIcon, MessageSquare,
+  ChevronRight, Info, AlertCircle
+} from "lucide-react";
+import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
+import { cn } from "@/lib/utils";
 
 interface BotStatus {
   connected: boolean;
@@ -15,8 +21,54 @@ interface BotStatus {
   tokenMasked: string | null;
 }
 
+// ── Helper: Code Block ────────────────────────────────────────────────────────
+function CodeBlock({ children, className }: { children: string; className?: string }) {
+  const { toast } = useToast();
+  return (
+    <div className={cn("relative group bg-muted rounded-lg p-4 font-mono text-sm whitespace-pre-wrap text-foreground border border-border/50", className)}>
+      {children}
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(children);
+          toast({ title: "تم النسخ ✓" });
+        }}
+        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border shadow-sm hover:bg-muted"
+        title="نسخ"
+      >
+        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
+    </div>
+  );
+}
+
+// ── Helper: Section Step ──────────────────────────────────────────────────────
+function Step({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-4">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shadow-sm">
+        {number}
+      </div>
+      <div className="flex-1 space-y-2">
+        <h4 className="font-semibold text-foreground text-sm">{title}</h4>
+        <div className="text-sm text-muted-foreground space-y-2">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function TelegramBot() {
   const { toast } = useToast();
+  const { data: user } = useGetMe({
+    query: {
+      enabled: !!localStorage.getItem("pro_token"),
+      queryKey: getGetMeQueryKey(),
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+    }
+  });
+  const isAdmin = user?.isAdmin;
+
   const [status, setStatus] = useState<BotStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
@@ -24,13 +76,13 @@ export default function TelegramBot() {
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
 
-  const token_stored = localStorage.getItem("pro_token");
+  const stored_token = localStorage.getItem("pro_token");
 
   const fetchStatus = async () => {
     setLoading(true);
     try {
       const r = await fetch("/api/settings/telegram", {
-        headers: { Authorization: `Bearer ${token_stored}` },
+        headers: { Authorization: `Bearer ${stored_token}` },
       });
       if (r.ok) setStatus(await r.json());
     } finally {
@@ -46,19 +98,19 @@ export default function TelegramBot() {
     try {
       const r = await fetch("/api/settings/telegram", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token_stored}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${stored_token}` },
         body: JSON.stringify({ token: token.trim() }),
       });
       const data = await r.json();
       if (r.ok) {
-        toast({ title: "تم الربط بنجاح", description: `البوت: @${data.botUsername}` });
+        toast({ title: "تم الربط بنجاح ✓", description: `البوت: @${data.botUsername}` });
         setToken("");
         fetchStatus();
       } else {
         toast({ title: "خطأ", description: data.error, variant: "destructive" });
       }
     } catch {
-      toast({ title: "خطأ", description: "تعذّر الاتصال بالخادم", variant: "destructive" });
+      toast({ title: "خطأ في الاتصال", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -70,84 +122,92 @@ export default function TelegramBot() {
     try {
       const r = await fetch("/api/settings/telegram", {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token_stored}` },
+        headers: { Authorization: `Bearer ${stored_token}` },
       });
-      if (r.ok) {
-        toast({ title: "تم إزالة الربط" });
-        fetchStatus();
-      }
+      if (r.ok) { toast({ title: "تم إزالة الربط" }); fetchStatus(); }
     } finally {
       setRemoving(false);
     }
   };
 
+  const botUsername = status?.botUsername;
+  const botConnected = status?.connected;
+
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6" dir="rtl">
-      <div className="flex items-center gap-3">
-        <div className="bg-primary/10 p-2 rounded-lg">
-          <Bot className="h-6 w-6 text-primary" />
+    <div className="p-6 max-w-4xl mx-auto space-y-6" dir="rtl">
+
+      {/* ── Header ────────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary/10 p-2.5 rounded-xl border border-primary/20">
+            <Bot className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">بوت تيليقرام</h1>
+            <p className="text-muted-foreground text-sm">أنشئ بطاقات إخبارية مباشرة من تيليقرام</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold">بوت تيليقرام</h1>
-          <p className="text-muted-foreground text-sm">ربط البوت لتوليد البطاقات مباشرةً من تيليقرام</p>
-        </div>
+        <Button variant="outline" size="sm" onClick={fetchStatus} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 ml-2", loading && "animate-spin")} />
+          تحديث الحالة
+        </Button>
       </div>
 
-      {/* Status Card */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center justify-between">
-            حالة الاتصال
-            <Button variant="ghost" size="sm" onClick={fetchStatus} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-sm text-muted-foreground">جاري التحقق...</div>
-          ) : status ? (
-            <div className="flex items-center gap-3">
-              {status.connected ? (
-                <CheckCircle className="h-6 w-6 text-green-500" />
-              ) : (
-                <XCircle className="h-6 w-6 text-red-500" />
-              )}
-              <div>
-                <div className="font-medium">
-                  {status.connected ? `متصل — @${status.botUsername}` : "غير متصل"}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {status.tokenSource === "env" && "التوكن مُعيَّن من متغير البيئة"}
-                  {status.tokenSource === "db" && `التوكن محفوظ: ${status.tokenMasked}`}
-                  {status.tokenSource === "none" && "لم يتم ربط أي بوت بعد"}
-                </div>
+      {/* ── Status Card ───────────────────────────────────────────────────────── */}
+      <Card className={cn("border-2 transition-colors", botConnected ? "border-green-500/30 bg-green-500/5" : "border-border")}>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center gap-3">
+            {loading ? (
+              <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            ) : botConnected ? (
+              <CheckCircle className="h-6 w-6 text-green-500 flex-shrink-0" />
+            ) : (
+              <XCircle className="h-6 w-6 text-red-500 flex-shrink-0" />
+            )}
+            <div className="flex-1">
+              <div className="font-semibold text-sm">
+                {loading ? "جاري التحقق..." : botConnected ? `متصل — @${botUsername}` : "البوت غير متصل"}
               </div>
-              {status.tokenSource === "db" && (
-                <Badge variant="secondary" className="mr-auto">محفوظ</Badge>
-              )}
-              {status.tokenSource === "env" && (
-                <Badge variant="outline" className="mr-auto">متغير بيئة</Badge>
+              {!loading && status && (
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {status.tokenSource === "env" && "التوكن مُعيَّن من إعدادات الخادم"}
+                  {status.tokenSource === "db" && `التوكن محفوظ: ${status.tokenMasked}`}
+                  {status.tokenSource === "none" && "لم يتم ربط أي بوت — تواصل مع المدير لإعداده"}
+                </div>
               )}
             </div>
-          ) : null}
+            {botConnected && botUsername && (
+              <a
+                href={`https://t.me/${botUsername}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-colors"
+              >
+                <ExternalLink className="h-3 w-3" />
+                فتح البوت
+              </a>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Connect Card */}
-      {status?.tokenSource !== "env" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">ربط بوت جديد</CardTitle>
+      {/* ── Admin: Manage Bot Token ────────────────────────────────────────────── */}
+      {isAdmin && status?.tokenSource !== "env" && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">أدمين فقط</Badge>
+              ربط / إدارة البوت
+            </CardTitle>
             <CardDescription>
-              أنشئ بوتاً من{" "}
-              <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-primary underline">
+              أنشئ بوتاً جديداً من{" "}
+              <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-primary underline font-medium">
                 @BotFather
               </a>{" "}
-              ثم انسخ التوكن وأدخله هنا
+              ثم الصق التوكن هنا لتفعيله لجميع المستخدمين
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="bot-token">توكن البوت</Label>
               <div className="flex gap-2">
@@ -157,7 +217,7 @@ export default function TelegramBot() {
                     type={showToken ? "text" : "password"}
                     value={token}
                     onChange={e => setToken(e.target.value)}
-                    placeholder="123456789:ABCdef..."
+                    placeholder="123456789:ABCdefGhi..."
                     className="text-left pr-10 font-mono text-sm"
                     dir="ltr"
                   />
@@ -174,7 +234,6 @@ export default function TelegramBot() {
                 </Button>
               </div>
             </div>
-
             {status?.tokenSource === "db" && (
               <Button variant="outline" size="sm" onClick={handleRemove} disabled={removing} className="text-red-500 border-red-200 hover:bg-red-50">
                 <Trash2 className="h-4 w-4 ml-2" />
@@ -185,65 +244,293 @@ export default function TelegramBot() {
         </Card>
       )}
 
-      {/* Usage Guide */}
+      {/* ── Personal botCode (non-admin premium users) ─────────────────────────── */}
+      {!isAdmin && botConnected && user?.botCode && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Hash className="h-4 w-4 text-primary" />
+              رمز حسابك الشخصي
+            </CardTitle>
+            <CardDescription>
+              أرسل هذا الرمز إلى البوت بعد كتابة <code className="font-mono bg-muted px-1 rounded text-xs">/start</code> لربط حسابك مرة واحدة فقط — ثم يتعرف البوت عليك تلقائياً في كل رسالة تحمل هذا الرمز
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3 bg-background rounded-xl border border-border p-4">
+              <span className="font-mono text-3xl font-bold tracking-widest text-primary select-all">{user.botCode}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mr-auto"
+                onClick={() => {
+                  navigator.clipboard.writeText(user.botCode!);
+                  toast({ title: "تم نسخ الرمز ✓" });
+                }}
+              >
+                <Copy className="h-4 w-4 ml-1" />
+                نسخ
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Quick Start ───────────────────────────────────────────────────────── */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">كيفية استخدام البوت</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" />
+            البدء السريع — 3 خطوات فقط
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <div className="space-y-3">
-            <div className="bg-muted rounded-lg p-3">
-              <div className="font-medium mb-1 text-xs text-muted-foreground">الطريقة الأساسية</div>
-              <pre className="font-mono text-xs whitespace-pre-wrap">{`قالب : عاجل
-عنوان : عنوان الخبر هنا`}</pre>
-              <div className="text-xs text-muted-foreground mt-1">ثم أرسل صورة الخلفية أو اكتب /skip</div>
-            </div>
+        <CardContent className="space-y-5">
+          <Step number={1} title="ابدأ محادثة مع البوت">
+            {botConnected && botUsername ? (
+              <a
+                href={`https://t.me/${botUsername}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                {`@${botUsername}`}
+              </a>
+            ) : (
+              <span className="text-amber-600 flex items-center gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5" />
+                البوت غير متصل حالياً — تواصل مع المدير
+              </span>
+            )}
+          </Step>
 
-            <div className="bg-muted rounded-lg p-3">
-              <div className="font-medium mb-1 text-xs text-muted-foreground">استخدام قالب API (من لوحة التحكم)</div>
-              <pre className="font-mono text-xs whitespace-pre-wrap">{`قالب : اسم-قالبك-المحفوظ
-عنوان : عنوان الخبر`}</pre>
-              <div className="text-xs text-muted-foreground mt-1">يطبّق البوت كل إعدادات القالب تلقائياً (لون، خط، شعار، محاذاة، علامة مائية)</div>
-            </div>
+          <Step number={2} title="أرسل رمز حسابك لربطه">
+            <p>أرسل الأمر <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">/start</code> ثم أرسل رمزك الشخصي المعروض أعلاه</p>
+          </Step>
 
-            <div className="bg-muted rounded-lg p-3">
-              <div className="font-medium mb-1 text-xs text-muted-foreground">صورة مع تعليق مباشر</div>
-              <pre className="font-mono text-xs whitespace-pre-wrap">{`قالب : breaking-red
-عنوان : عنوان الخبر
-نسبة : 16:9
-تسمية : CNN`}</pre>
-            </div>
+          <Step number={3} title="أرسل رسالة لإنشاء بطاقة">
+            <p>الصيغة الأساسية:</p>
+            <CodeBlock>{`قالب : عاجل
+عنوان : ترامب يُعلن رفع الرسوم الجمركية
+رقم حساب : ${user?.botCode ?? "NB-XXXX"}`}</CodeBlock>
+            <p className="text-xs mt-1 flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              ثم أرسل صورة الخلفية، أو اكتب <code className="font-mono bg-muted px-1 rounded">/skip</code> للتوليد بدون صورة
+            </p>
+          </Step>
+        </CardContent>
+      </Card>
+
+      {/* ── Format Reference ──────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-primary" />
+            صيغة الرسائل — الحقول المتاحة
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/50 text-xs text-muted-foreground">
+                  <th className="text-right pb-2 pr-3">الحقل</th>
+                  <th className="text-right pb-2 pr-3">الوصف</th>
+                  <th className="text-right pb-2">مثال</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {[
+                  ["قالب", "اسم أو رقم القالب (مطلوب البديل الافتراضي: كلاسك)", "قالب : عاجل"],
+                  ["عنوان", "نص الخبر الرئيسي (مطلوب)", "عنوان : كذا وكذا..."],
+                  ["رقم حساب", "رمز حسابك الشخصي (مطلوب)", `رقم حساب : ${user?.botCode ?? "NB-XXXX"}`],
+                  ["نسبة", "نسبة الأبعاد (اختياري، افتراضي: 1:1)", "نسبة : 16:9"],
+                  ["تسمية", "النص الصغير / المصدر (اختياري)", "تسمية : CNN"],
+                ].map(([field, desc, ex]) => (
+                  <tr key={field} className="text-xs">
+                    <td className="py-2 pr-3 font-mono text-primary font-semibold">{field}</td>
+                    <td className="py-2 pr-3 text-muted-foreground">{desc}</td>
+                    <td className="py-2 font-mono text-foreground/70">{ex}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          <div>
-            <div className="font-medium mb-2">القوالب المدمجة:</div>
-            <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-              {[
-                ["عاجل / breaking-red", "🔴"],
-                ["كلاسك / classic-blue", "🔵"],
-                ["مودرن / modern-black", "⚫"],
-                ["زمرد / emerald", "🟢"],
-                ["ملكي / royal-purple", "🟣"],
-                ["ذهبي / gold", "🟡"],
-                ["ليلي / midnight", "🌙"],
-                ["موجة / purple-wave", "💜"],
-              ].map(([name, icon]) => (
-                <div key={name} className="flex items-center gap-1">
-                  <span>{icon}</span>
-                  <span className="font-mono">{name}</span>
-                </div>
-              ))}
+          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-2">
+            <div className="bg-muted/50 rounded-lg p-2">
+              <span className="font-medium text-foreground block mb-1">نسب الأبعاد</span>
+              <div className="space-y-0.5">
+                <div>• <code className="font-mono">1:1</code> — مربع (افتراضي)</div>
+                <div>• <code className="font-mono">16:9</code> — أفقي / ثمبنيل</div>
+                <div>• <code className="font-mono">4:5</code> — بورتريه</div>
+                <div>• <code className="font-mono">9:16</code> — ستوري</div>
+              </div>
             </div>
-          </div>
-
-          <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 text-blue-700 dark:text-blue-300">
-            <div className="font-medium text-xs mb-1">💡 نصيحة</div>
-            <div className="text-xs">
-              احفظ قالباً من صفحة "إنشاء بطاقة" ثم استخدم اسمه أو الـ slug في البوت — سيُطبَّق كل شيء تلقائياً.
+            <div className="bg-muted/50 rounded-lg p-2">
+              <span className="font-medium text-foreground block mb-1">أوامر البوت</span>
+              <div className="space-y-0.5">
+                <div>• <code className="font-mono">/start</code> — ترحيب ومساعدة</div>
+                <div>• <code className="font-mono">/templates</code> — قائمة القوالب</div>
+                <div>• <code className="font-mono">/skip</code> — توليد بدون صورة</div>
+                <div>• <code className="font-mono">/help</code> — دليل كامل</div>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Built-in Templates ────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Layers className="h-4 w-4 text-primary" />
+            القوالب المدمجة
+          </CardTitle>
+          <CardDescription>يمكن استخدام الاسم العربي أو الإنجليزي أو الرقم</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {[
+              { ar: "كلاسك / كلاسيك", en: "classic-blue", num: "1", color: "bg-blue-500" },
+              { ar: "عاجل / أحمر", en: "breaking-red", num: "2", color: "bg-red-500" },
+              { ar: "مودرن / أسود", en: "modern-black", num: "3", color: "bg-gray-800" },
+              { ar: "زمرد / أخضر", en: "emerald", num: "4", color: "bg-emerald-500" },
+              { ar: "ملكي / بنفسجي", en: "royal-purple", num: "5", color: "bg-purple-600" },
+              { ar: "ذهبي / بني", en: "gold", num: "6", color: "bg-yellow-500" },
+              { ar: "ليلي / كحلي", en: "midnight", num: "7", color: "bg-slate-800" },
+              { ar: "تدرج / فيد", en: "slate-fade", num: "8", color: "bg-slate-500" },
+              { ar: "بيضاء / أبيض", en: "white-quote", num: "9", color: "bg-white border border-gray-200" },
+              { ar: "موجة / وايف", en: "purple-wave", num: "10", color: "bg-violet-500" },
+              { ar: "قرمزي", en: "crimson", num: "11", color: "bg-rose-700" },
+            ].map(t => (
+              <div key={t.en} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                <div className={`w-3 h-3 rounded-full flex-shrink-0 ${t.color}`} />
+                <div className="min-w-0">
+                  <div className="text-xs font-medium truncate">{t.ar}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">{t.num}  •  {t.en}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Custom (Saved Designs) Templates ─────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-primary" />
+            القوالب المحفوظة (تصاميمك الخاصة)
+          </CardTitle>
+          <CardDescription>
+            احفظ أي تصميم من صفحة "إنشاء بطاقة" ثم استخدم اسمه مباشرة في البوت — يطبّق جميع إعداداتك تلقائياً (لون، خط، شعار، محاذاة...)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+              <ChevronRight className="h-3.5 w-3.5" />
+              خطوات الحفظ
+            </div>
+            <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground pr-4">
+              <li>اذهب إلى <strong className="text-foreground">إنشاء بطاقة</strong> وعدّل التصميم كما تريد</li>
+              <li>انقر <strong className="text-foreground">حفظ التصميم</strong> وأعطه اسماً مميزاً (مثلاً: <code className="font-mono bg-muted px-1 rounded text-xs">breaking-cnn</code>)</li>
+              <li>استخدم هذا الاسم مباشرة في البوت:</li>
+            </ol>
+          </div>
+          <CodeBlock>{`قالب : breaking-cnn
+عنوان : عنوان الخبر الآن
+رقم حساب : ${user?.botCode ?? "NB-XXXX"}`}</CodeBlock>
+          <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300">
+            <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+            <div>البوت يبحث بالاسم بشكل تلقائي في قوالبك المحفوظة ثم في قوالب API ثم في القوالب المدمجة — فقط أرسل الاسم الصحيح.</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── API Templates ─────────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" />
+            قوالب API (القوالب العامة للمشرف)
+          </CardTitle>
+          <CardDescription>
+            قوالب ينشئها المشرف من لوحة التحكم وتكون متاحة لجميع المستخدمين عبر البوت — تحمل slug مثل <code className="font-mono text-xs">berrechid-breaking</code>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <CodeBlock>{`قالب : berrechid-breaking
+عنوان : عنوان الخبر
+نسبة : 16:9
+رقم حساب : ${user?.botCode ?? "NB-XXXX"}`}</CodeBlock>
+          </div>
+          <div className="flex items-start gap-2 bg-muted rounded-lg p-3 text-xs text-muted-foreground">
+            <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+            <div>يطبّق البوت كل إعدادات قالب API تلقائياً: الألوان، الشعار، الخط، علامة مائية، الإطار التراكبي...</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Sending with Photo ─────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ImageIcon className="h-4 w-4 text-primary" />
+            إرسال بطاقة مع صورة خلفية
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">الطريقة ١: رسالة ثم صورة</p>
+              <CodeBlock>{`قالب : عاجل
+عنوان : نص الخبر
+رقم حساب : ${user?.botCode ?? "NB-XXXX"}`}</CodeBlock>
+              <p className="text-xs text-muted-foreground">← أرسل الصورة في الرسالة التالية</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">الطريقة ٢: صورة مع تعليق مباشر</p>
+              <CodeBlock>{`قالب : ملكي
+عنوان : نص الخبر
+نسبة : 16:9
+رقم حساب : ${user?.botCode ?? "NB-XXXX"}`}</CodeBlock>
+              <p className="text-xs text-muted-foreground">← اكتب التعليق أسفل الصورة عند إرسالها</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Examples Gallery ──────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">أمثلة جاهزة للنسخ</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[
+            {
+              label: "خبر عاجل مربع",
+              code: `قالب : عاجل\nعنوان : ترامب يرفع الرسوم الجمركية إلى 145% على الصين\nرقم حساب : ${user?.botCode ?? "NB-XXXX"}`,
+            },
+            {
+              label: "خبر أفقي بمصدر",
+              code: `قالب : كلاسك\nعنوان : رئيس الحكومة يُعلن ميزانية 2025 في خطاب تاريخي\nنسبة : 16:9\nتسمية : وكالة المغرب العربي\nرقم حساب : ${user?.botCode ?? "NB-XXXX"}`,
+            },
+            {
+              label: "قالب مخصص محفوظ",
+              code: `قالب : my-breaking-template\nعنوان : عنوان الخبر الآن\nرقم حساب : ${user?.botCode ?? "NB-XXXX"}`,
+            },
+          ].map(ex => (
+            <div key={ex.label} className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">{ex.label}</p>
+              <CodeBlock>{ex.code}</CodeBlock>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
     </div>
   );
 }

@@ -2,18 +2,13 @@ import { Router, type IRouter } from "express";
 import { db, plansTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { requireAdmin } from "../middlewares/admin";
 import { z } from "zod";
 import { invalidatePlanCache, getPlanLimits, getUserUsage } from "../middlewares/planGuard";
 
 const router: IRouter = Router();
 
-// ── requireAdmin ──────────────────────────────────────────────────────────────
-async function requireAdmin(req: AuthRequest, res: any, next: any): Promise<void> {
-  await requireAuth(req, res, () => {
-    if (!req.user?.isAdmin) { res.status(403).json({ error: "Admin only" }); return; }
-    next();
-  });
-}
+
 
 const PlanBody = z.object({
   name: z.string().min(1),
@@ -62,7 +57,11 @@ router.get("/admin/plans", requireAdmin, async (_req, res): Promise<void> => {
 // POST /admin/plans
 router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
   const parsed = PlanBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  if (!parsed.success) { 
+    console.error("Plan validation failed:", parsed.error);
+    res.status(400).json({ error: "خطأ في البيانات: " + parsed.error.issues[0].message }); 
+    return; 
+  }
   const [created] = await db.insert(plansTable).values(parsed.data).returning();
   invalidatePlanCache();
   res.status(201).json(created);

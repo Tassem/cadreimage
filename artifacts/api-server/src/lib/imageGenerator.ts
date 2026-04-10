@@ -380,6 +380,7 @@ async function buildHtml(opts: GenerateOptions, w: number, h: number, bgDataUrl?
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700&family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700;800&family=Readex+Pro:wght@400;600;700&family=Rubik:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans+Arabic:wght@400;600;700&family=Noto+Kufi+Arabic:wght@400;600;700;800&display=swap" rel="stylesheet" />
 <style>
 ${fontFace}
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -478,7 +479,8 @@ export async function generateCard(options: GenerateOptions): Promise<{ filePath
     try {
       await page.setViewportSize({ width: w, height: h });
       await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 25000 });
-      await page.waitForTimeout(500);
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(150);
       const cardEl = await page.$("#card");
       if (!cardEl) throw new Error("Card element not found in page");
       return await cardEl.screenshot({ type: "png" }) as Buffer;

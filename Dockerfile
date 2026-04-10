@@ -11,7 +11,8 @@
 # ============================================================
 
 # ---- shared base (node + pnpm + workspace deps) ----
-FROM node:20-alpine AS base
+# Use Debian-based image for build stages
+FROM node:20-slim AS base
 
 RUN corepack enable && corepack prepare pnpm@10 --activate
 
@@ -94,30 +95,24 @@ COPY --from=build-api /app/artifacts/api-server/src/fonts ./artifacts/api-server
 COPY lib/ ./lib/
 
 # uploads dir (mounted as volume at runtime)
-RUN mkdir -p artifacts/api-server/uploads
+RUN mkdir -p /app/uploads
 
 EXPOSE 8080
 
 CMD ["node", "artifacts/api-server/dist/index.mjs"]
 
 # ============================================================
-# PRODUCTION IMAGE: Free Generator (nginx)
+# PRODUCTION IMAGE: Frontend (Combined nginx)
 # ============================================================
-FROM nginx:alpine AS frontend-gen
+FROM nginx:alpine AS frontend
 
-COPY nginx/generator.conf /etc/nginx/conf.d/default.conf
+COPY nginx/combined.conf /etc/nginx/conf.d/default.conf
+
+# Copy Free Generator to root /
 COPY --from=build-gen /app/artifacts/news-card-generator/dist/public /usr/share/nginx/html/public
 
-EXPOSE 80
-
-# ============================================================
-# PRODUCTION IMAGE: Pro Dashboard (nginx)
-# ============================================================
-FROM nginx:alpine AS frontend-pro
-
-COPY nginx/pro.conf /etc/nginx/conf.d/default.conf
-# Copy built assets into /public/pro/ so nginx root+location resolves correctly:
-# root = /usr/share/nginx/html/public, location = /pro/ → files at /public/pro/
+# Copy Pro Dashboard to /pro/
 COPY --from=build-pro /app/artifacts/news-card-pro/dist/public /usr/share/nginx/html/public/pro
 
 EXPOSE 80
+

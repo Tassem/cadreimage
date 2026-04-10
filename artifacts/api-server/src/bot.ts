@@ -7,6 +7,7 @@ import { ensureUploadsDir } from "./lib/imageGenerator";
 import fs from "fs/promises";
 import path from "path";
 import { logger } from "./lib/logger";
+import { getPlanLimits } from "./middlewares/planGuard";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 // Active token — updated whenever a bot is started (handles DB-sourced tokens)
@@ -147,6 +148,7 @@ interface PendingCard {
   designName?: string;
   logoUrl?: string | null;
   overlayUrl?: string | null;
+  botCode?: string;
 }
 
 interface Session {
@@ -235,7 +237,38 @@ async function doGenerate(
   const waitMsg = await ctx.reply("⏳ جاري توليد البطاقة...");
 
   try {
-    // Resolve logo: local filename → URL → null
+    // Check user based on botCode if provided
+    let finalUser = user;
+    if (card.botCode) {
+      const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.botCode, card.botCode));
+      if (!dbUser) {
+        await ctx.reply("❌ رقم الحساب (الرمز السري) غير صحيح. يرجى التأكد منه من لوحة التحكم.");
+        try { await ctx.deleteMessage(waitMsg.message_id); } catch {}
+        return;
+      }
+      finalUser = dbUser;
+    } else {
+      await ctx.reply("⚠️ يرجى إرفاق رقم الحساب/الرمز السري الخاص بك.\nمثال: `رقم حساب : NB-1234` ");
+      try { await ctx.deleteMessage(waitMsg.message_id); } catch {}
+      return;
+    }
+
+    const limits = await getPlanLimits(finalUser.plan);
+
+    if (!limits.telegramBot && !finalUser.isAdmin) {
+      const upgradeMsg = finalUser.plan === "free" 
+        ? "⚠️ باقتك الحالية (المجانية) لا تدعم استخدام البوت. يرجى الترقية من لوحة التحكم للحصول على هذه الميزة."
+        : `⚠️ باقتك الحالية (${finalUser.plan}) لا تدعم استخدام البوت. يرجى الترقية.`;
+      await ctx.reply(upgradeMsg);
+      try { await ctx.deleteMessage(waitMsg.message_id); } catch {}
+      return;
+    }
+
+    if (finalUser.imagesToday >= limits.cardsPerDay && limits.cardsPerDay !== -1) {
+      await ctx.reply(`⚠️ عذراً، لقد وصلت للحد اليومي المسموح به لباقة (${finalUser.plan === "free" ? "المجانية" : finalUser.plan}) وهو ${limits.cardsPerDay} بطاقة. سيتم تجديد الحد تلقائياً غداً، أو يمكنك الترقية الآن لزيادة الحد.`);
+      try { await ctx.deleteMessage(waitMsg.message_id); } catch {}
+      return;
+    }
     let logoImagePath: string | null = null;
     if (!card.useLogoText) {
       if (card.logoPhotoFilename) {
@@ -295,11 +328,11 @@ async function doGenerate(
     await db.insert(generatedImagesTable).values({ userId: user.id, title: card.title, imageUrl, aspectRatio: card.aspect, fileSize });
 
     const today = new Date().toISOString().split("T")[0];
-    if (user.lastResetDate !== today) {
-      await db.update(usersTable).set({ imagesToday: 0, lastResetDate: today }).where(eq(usersTable.id, user.id));
-      user.imagesToday = 0;
+    if (finalUser.lastResetDate !== today) {
+      await db.update(usersTable).set({ imagesToday: 0, lastResetDate: today }).where(eq(usersTable.id, finalUser.id));
+      finalUser.imagesToday = 0;
     }
-    await db.update(usersTable).set({ imagesToday: user.imagesToday + 1 }).where(eq(usersTable.id, user.id));
+    await db.update(usersTable).set({ imagesToday: finalUser.imagesToday + 1 }).where(eq(usersTable.id, finalUser.id));
 
     const fileBuffer = await fs.readFile(filePath);
     await ctx.replyWithPhoto(
@@ -317,10 +350,9 @@ async function doGenerate(
 
 // ── Parse format message (returns raw fields; template resolution is async) ───
 interface ParsedMessage {
-  templateNameRaw: string;
-  title: string;
   aspect: Aspect;
   label?: string;
+  botCode?: string;
 }
 
 function parseFormatMessage(text: string): ParsedMessage | null {
@@ -343,8 +375,11 @@ function parseFormatMessage(text: string): ParsedMessage | null {
   const aspectRaw = get(["نسبة", "aspect", "size", "حجم"]);
   const aspect: Aspect = (aspectRaw && ASPECTS.includes(aspectRaw as Aspect)) ? (aspectRaw as Aspect) : "1:1";
   const label = get(["تسمية", "label", "مصدر", "source"]);
+  
+  // Improved bot code parsing: check for full phrases first, then short keys
+  const botCode = get(["رقم حساب", "رقم الحساب", "كود الحساب", "كود", "حساب", "رقم", "id", "account", "code", "NB"]);
 
-  return { templateNameRaw, title, aspect, label };
+  return { templateNameRaw, title, aspect, label, botCode };
 }
 
 const toAlign = (v: unknown): "right" | "center" | "left" | undefined => {
@@ -362,10 +397,12 @@ async function buildPendingCard(parsed: ParsedMessage): Promise<PendingCard> {
   // If resolved to an API template row, extract all fields from it directly
   if (apiTemplate) {
     const t = apiTemplate;
+    const cat = t.category && t.category !== "news" ? t.category : "custom";
     return {
       title:             parsed.title,
-      templateId:        t.id.toString(),
+      templateId:        cat,
       aspect:            parsed.aspect,
+      botCode:           parsed.botCode,
       designName:        t.name,
       // text content (override from message, else template default)
       label:             parsed.label ?? t.label ?? undefined,
@@ -406,6 +443,7 @@ async function buildPendingCard(parsed: ParsedMessage): Promise<PendingCard> {
     title:             parsed.title,
     templateId,
     aspect:            parsed.aspect,
+    botCode:           parsed.botCode,
     designName:        displayName,
     label:             parsed.label ?? str(s?.label),
     subtitle:          str(s?.subtitle),
@@ -446,9 +484,10 @@ export function createBot(token?: string): Telegraf {
       `*طريقة الاستخدام السريع:*\n` +
       `أرسل رسالة بهذا الشكل:\n\n` +
       `\`قالب : عاجل\n` +
-      `عنوان : عنوان الخبر هنا\`\n\n` +
+      `عنوان : عنوان الخبر هنا\n` +
+      `رقم حساب : NB-XXXX\`\n\n` +
       `ثم أرسل صورة الخلفية (أو اكتب \`/skip\` للمتابعة بدون صورة).\n\n` +
-      `يمكنك أيضاً إرسال الصورة مع كتابة النص كتعليق عليها مباشرة.\n\n` +
+      `يمكنك الحصول على رقم الحساب الخاص بك من لوحة التحكم في الموقع.\n\n` +
       `📋 /templates — قائمة القوالب\n` +
       `❓ /help — مساعدة`,
       { parse_mode: "Markdown" }

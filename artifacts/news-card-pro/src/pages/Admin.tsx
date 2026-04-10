@@ -10,6 +10,7 @@ interface AdminUser {
   imagesToday: number;
   totalImages: number;
   isAdmin: boolean;
+  botCode: string | null;
   createdAt: string;
 }
 interface Stats {
@@ -103,6 +104,10 @@ export default function Admin() {
   const [adminPlans, setAdminPlans] = useState<AdminPlan[]>([]);
   const [editingPlan, setEditingPlan] = useState<AdminPlan | null>(null);
   const [planSaving, setPlanSaving] = useState(false);
+  
+  const [botStatus, setBotStatus] = useState<{connected:boolean, botUsername:string|null, hasToken:boolean} | null>(null);
+  const [newBotToken, setNewBotToken] = useState("");
+  const [botLoading, setBotLoading] = useState(false);
 
   const authHeaders = useCallback(() => ({
     "Content-Type": "application/json",
@@ -128,6 +133,10 @@ export default function Admin() {
       setUsers(u);
       setImages(i);
       if (Array.isArray(p)) setAdminPlans(p);
+      
+      // Fetch bot status
+      const botRes = await fetch("/api/settings/telegram", { headers: { Authorization: `Bearer ${t}` } });
+      if (botRes.ok) setBotStatus(await botRes.json());
     } catch { /* silent */ }
   }, []);
 
@@ -222,6 +231,35 @@ export default function Admin() {
     } catch { /* silent */ }
   };
 
+  const handleUpdateBot = async () => {
+    if (!newBotToken.trim()) return;
+    setBotLoading(true);
+    try {
+      const res = await fetch("/api/settings/telegram", {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({ token: newBotToken.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`تم الربط بنجاح: @${data.botUsername}`);
+        setNewBotToken("");
+        loadData(token);
+      } else {
+        alert(data.error || "فشل الربط");
+      }
+    } finally { setBotLoading(false); }
+  };
+
+  const handleRemoveBot = async () => {
+    if (!confirm("إزالة البوت؟")) return;
+    setBotLoading(true);
+    try {
+      const res = await fetch("/api/settings/telegram", { method: "DELETE", headers: authHeaders() });
+      if (res.ok) loadData(token);
+    } finally { setBotLoading(false); }
+  };
+
   const filteredUsers = users.filter(u =>
     u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -313,6 +351,7 @@ export default function Admin() {
           <button style={tabBtnStyle("users")}  onClick={() => setActiveTab("users")}>👥 المستخدمون {users.length ? `(${users.length})` : ""}</button>
           <button style={tabBtnStyle("images")} onClick={() => setActiveTab("images")}>🖼️ الصور الأخيرة</button>
           <button style={tabBtnStyle("plans")}  onClick={() => setActiveTab("plans")}>💎 الباقات {adminPlans.length ? `(${adminPlans.length})` : ""}</button>
+          <button style={tabBtnStyle("stats")}  onClick={() => (setActiveTab as any)("bot")}>🤖 إعدادات البوت</button>
         </div>
 
         {/* ── STATS TAB ── */}
@@ -370,7 +409,7 @@ export default function Admin() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                 <thead>
                   <tr style={{ background: BG }}>
-                    {["#", "الاسم / البريد", "الخطة", "الصور", "اليوم", "Admin", "إجراءات"].map(h => (
+                    {["#", "الاسم / البريد", "الخطة", "كود البوت", "الصور", "اليوم", "إجراءات"].map(h => (
                       <th key={h} style={{ padding: "12px 14px", color: MUTED, fontWeight: 600, textAlign: "right", borderBottom: `1px solid ${BORDER}`, whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
@@ -398,14 +437,13 @@ export default function Admin() {
                           );
                         })()}
                       </td>
+                      <td style={{ padding: "12px 14px" }}>
+                        <span style={{ fontFamily: "monospace", fontSize: "12px", background: BORDER, padding: "2px 6px", borderRadius: "4px" }}>
+                          {u.botCode || "—"}
+                        </span>
+                      </td>
                       <td style={{ padding: "12px 14px", color: TEXT, fontWeight: 600 }}>{u.totalImages}</td>
                       <td style={{ padding: "12px 14px", color: u.imagesToday > 0 ? GREEN : MUTED }}>{u.imagesToday}</td>
-                      <td style={{ padding: "12px 14px" }}>
-                        {u.isAdmin
-                          ? <span style={{ color: AMBER, fontSize: "12px" }}>🛡️ Admin</span>
-                          : <span style={{ color: MUTED, fontSize: "12px" }}>—</span>
-                        }
-                      </td>
                       <td style={{ padding: "12px 14px" }}>
                         <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
                           {updatingId === u.id ? (
@@ -588,6 +626,44 @@ export default function Admin() {
               {adminPlans.length === 0 && (
                 <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "48px", color: MUTED }}>لا توجد باقات بعد</div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── BOT TAB ── */}
+        {(activeTab as string) === "bot" && (
+          <div style={{ maxWidth: "600px" }}>
+            <div style={{ ...card(), marginBottom: "20px" }}>
+              <h3 style={{ margin: "0 0 16px", fontSize: "16px" }}>حالة بوت تيليجرام</h3>
+              {botStatus ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", background: BG, padding: "14px", borderRadius: "10px" }}>
+                  <div style={{ fontSize: "24px" }}>{botStatus.connected ? "✅" : "❌"}</div>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{botStatus.connected ? `متصل: @${botStatus.botUsername}` : "غير متصل"}</div>
+                    <div style={{ fontSize: "12px", color: MUTED }}>{botStatus.hasToken ? "التوكن محفوظ في قاعدة البيانات" : "لا يوجد توكن حالياً"}</div>
+                  </div>
+                  {botStatus.hasToken && (
+                    <button onClick={handleRemoveBot} disabled={botLoading} style={{ ...btn(RED, true), marginRight: "auto" }}>فصل البوت</button>
+                  )}
+                </div>
+              ) : (
+                <div style={{ color: MUTED }}>جاري التحميل...</div>
+              )}
+            </div>
+
+            <div style={card()}>
+              <h3 style={{ margin: "0 0 16px", fontSize: "16px" }}>تحديث توكن البوت</h3>
+              <p style={{ fontSize: "12px", color: MUTED, marginBottom: "12px" }}>أدخل التوكن الجديد من @BotFather لربط البوت بالنظام.</p>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <input
+                  type="password" placeholder="123456:ABC-DEF..." value={newBotToken}
+                  onChange={e => setNewBotToken(e.target.value)} dir="ltr"
+                  style={{ flex: 1, background: BG, border: `1px solid ${BORDER}`, borderRadius: "8px", color: TEXT, padding: "10px", fontSize: "14px", outline: "none" }}
+                />
+                <button onClick={handleUpdateBot} disabled={botLoading || !newBotToken} style={btn(BLUE)}>
+                  {botLoading ? "..." : "ربط وحفظ"}
+                </button>
+              </div>
             </div>
           </div>
         )}

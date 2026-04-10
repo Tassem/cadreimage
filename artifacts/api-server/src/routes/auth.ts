@@ -5,6 +5,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { signToken, requireAuth, type AuthRequest } from "../middlewares/auth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
+import { getPlanLimits } from "../middlewares/planGuard";
 
 const router: IRouter = Router();
 
@@ -26,6 +27,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const passwordHash = await bcrypt.hash(password, 10);
   const apiKey = `ncg_${uuidv4().replace(/-/g, "")}`;
   const today = new Date().toISOString().slice(0, 10);
+  const botCode = `NB-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const [user] = await db.insert(usersTable).values({
     name,
@@ -35,6 +37,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     plan: "free",
     imagesToday: 0,
     lastResetDate: today,
+    botCode,
   }).returning();
 
   const token = signToken(user.id);
@@ -47,7 +50,10 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       email: user.email,
       plan: user.plan,
       apiKey: user.apiKey,
+      botCode: user.botCode,
+      isAdmin: user.isAdmin,
       imagesToday: user.imagesToday,
+      planDetails: await getPlanLimits(user.plan),
       createdAt: user.createdAt,
     },
   });
@@ -84,7 +90,10 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       email: user.email,
       plan: user.plan,
       apiKey: user.apiKey,
+      botCode: user.botCode,
+      isAdmin: user.isAdmin,
       imagesToday: user.imagesToday,
+      planDetails: await getPlanLimits(user.plan),
       createdAt: user.createdAt,
     },
   });
@@ -98,7 +107,10 @@ router.get("/auth/me", requireAuth, async (req: AuthRequest, res): Promise<void>
     email: user.email,
     plan: user.plan,
     apiKey: user.apiKey,
+    botCode: user.botCode,
+    isAdmin: user.isAdmin,
     imagesToday: user.imagesToday,
+    planDetails: await getPlanLimits(user.plan),
     createdAt: user.createdAt,
   });
 });

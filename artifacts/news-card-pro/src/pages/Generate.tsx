@@ -1,5 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Zap, Image as ImageIcon, Sparkles, Move, Save, Send, Type, Palette, Settings2, Share2, AlertCircle, CheckCircle2, Layers } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
+import { cn } from "@/lib/utils";
 // ─── Constants (mirror original) ──────────────────────────────────────────────
 
 const DEFAULT_HEADLINE =
@@ -158,40 +170,11 @@ function loadDesigns(): SavedDesign[] {
   } catch { return []; }
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const SL: React.CSSProperties = {
-  fontSize: "11px", color: "#64748b", fontWeight: 600,
-  textTransform: "uppercase", letterSpacing: "0.08em",
-  marginBottom: "8px", fontFamily: "'Inter', sans-serif",
-};
-const SECTION: React.CSSProperties = {
-  background: "#1a2035", borderRadius: "12px",
-  padding: "14px", border: "1px solid #1e293b",
-};
-
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div
-      onClick={() => onChange(!checked)}
-      style={{
-        width: "36px", height: "20px", borderRadius: "10px",
-        background: checked ? "#3b82f6" : "#334155",
-        cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0,
-      }}
-    >
-      <div style={{
-        position: "absolute", top: "2px",
-        left: checked ? "18px" : "2px",
-        width: "16px", height: "16px", borderRadius: "50%",
-        background: "#fff", transition: "left 0.2s",
-      }} />
-    </div>
-  );
-}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Generate() {
   const s = useRef(loadSaved()).current;
+  const { data: user } = useGetMe({ query: { enabled: !!localStorage.getItem("pro_token"), queryKey: getGetMeQueryKey(), staleTime: 0, refetchOnWindowFocus: true } });
 
   // Content state
   const [bgImage, setBgImage]           = useState<string | null>(null);
@@ -528,6 +511,24 @@ export default function Generate() {
     const token = localStorage.getItem("pro_token");
     await fetch(`/api/templates/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
     setApiTemplates(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const handleRegenerateApiKey = useCallback(async () => {
+    if (!confirm("تجديد المفتاح سيُلغي المفتاح القديم. هل أنت متأكد؟")) return;
+    setApiKeyRegenerating(true);
+    try {
+      const token = localStorage.getItem("pro_token");
+      const res = await fetch("/api/auth/regenerate-key", { 
+        method: "POST", 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      const d = await res.json();
+      if (d.apiKey) setApiKey(d.apiKey);
+    } catch (err: any) {
+      alert("خطأ: " + err.message);
+    } finally {
+      setApiKeyRegenerating(false);
+    }
   }, []);
 
   // ── Canvas drag / resize handlers ────────────────────────────────────────
@@ -872,13 +873,15 @@ export default function Generate() {
   }, [botToken, chatId, headline, subtitle, label, showSubtitle, showLabel, useLogoText, logoText, selectedTemplateId, aspectRatio, font, fontSize, fontWeight, textShadow, logoPos, logoInvert, customBannerColor, customTextColor, customPhotoHeight, imgPositionX, imgPositionY, bgServerFilename, logoServerFilename]);
 
   // ── Tab style ─────────────────────────────────────────────────────────────
-  const tabStyle = (id: TabId): React.CSSProperties => ({
-    padding: "7px 14px", borderRadius: "8px", border: "none", cursor: "pointer",
-    fontSize: "13px", fontWeight: activeTab === id ? 600 : 400,
-    background: activeTab === id ? "#3b82f6" : "rgba(255,255,255,0.05)",
-    color: activeTab === id ? "#fff" : "#94a3b8",
-    transition: "all 0.15s", fontFamily: "'Cairo', sans-serif", whiteSpace: "nowrap" as const,
-  });
+  const tabStyle = (id: TabId): React.CSSProperties => {
+    return {
+      padding: "7px 14px", borderRadius: "8px", border: "none", cursor: "pointer",
+      fontSize: "13px", fontWeight: activeTab === id ? 600 : 400,
+      background: activeTab === id ? "#3b82f6" : "rgba(255,255,255,0.05)",
+      color: activeTab === id ? "#fff" : "#94a3b8",
+      transition: "all 0.15s", fontFamily: "'Cairo', sans-serif", whiteSpace: "nowrap" as const,
+    };
+  };
 
   const FONT_WEIGHTS = [900, 800, 700, 600, 500, 400];
   const tabs: { id: TabId; label: string }[] = [
@@ -892,802 +895,912 @@ export default function Generate() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", fontFamily: "'Cairo', sans-serif", display: "flex", flexDirection: "column" }}>
-
-      {/* ── Header ── */}
-      <header style={{ borderBottom: "1px solid #1e293b", padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0f172a", position: "sticky", top: 0, zIndex: 10 }}>
-        <div>
-          <h1 style={{ fontSize: "18px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>🗞️ مولّد بطاقات الأخبار</h1>
-          <p style={{ fontSize: "11px", color: "#64748b", margin: 0, fontFamily: "Inter" }}>News Card Generator Pro</p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontSize: "14px", color: "#94a3b8", fontWeight: 500 }}>مرحباً {userName}</span>
-          <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px" }}>👤</div>
-        </div>
-      </header>
-
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-
+    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)} className="flex h-[calc(100vh-8rem)] w-full overflow-hidden" dir="rtl">
         {/* ── Left sidebar ── */}
-        <aside style={{ width: "420px", minWidth: "380px", background: "#111827", borderLeft: "1px solid #1e293b", display: "flex", flexDirection: "column", overflowY: "auto", flexShrink: 0 }}>
-
-          {/* Tabs */}
-          <div style={{ padding: "10px 14px", borderBottom: "1px solid #1e293b", display: "flex", gap: "5px", flexWrap: "wrap" }}>
-            {tabs.map(t => (
-              <button key={t.id} style={tabStyle(t.id)} onClick={() => setActiveTab(t.id)}>{t.label}</button>
-            ))}
+        <aside className="w-[420px] min-w-[380px] bg-sidebar border-l border-sidebar-border flex flex-col shrink-0 z-10 shadow-lg overflow-hidden">
+          <div className="p-4 border-b border-sidebar-border bg-sidebar/95 backdrop-blur sticky top-0 z-20">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold flex items-center gap-2 text-sidebar-foreground">
+                <Settings2 className="text-primary w-5 h-5" /> الإعدادات
+              </h2>
+              <div className="flex items-center gap-2">
+                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                   {user?.isAdmin ? 'أدمين' : user?.plan === 'pro' ? 'برو Pro' : user?.plan === 'agency' ? 'وكالة Agency' : user?.plan === 'starter' ? 'المبتدئ' : 'مجاني Free'}
+                 </span>
+              </div>
+            </div>
+            <TabsList className="grid grid-cols-3 h-auto p-1 gap-1 bg-muted/50">
+              <TabsTrigger value="content" className="flex flex-col gap-1 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <ImageIcon className="w-4 h-4" />
+                <span className="text-[10px]">المحتوى</span>
+              </TabsTrigger>
+              <TabsTrigger value="design" className="flex flex-col gap-1 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Palette className="w-4 h-4" />
+                <span className="text-[10px]">التصميم</span>
+              </TabsTrigger>
+              <TabsTrigger value="typography" className="flex flex-col gap-1 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Type className="w-4 h-4" />
+                <span className="text-[10px]">الخطوط</span>
+              </TabsTrigger>
+              <TabsTrigger value="saved" className="flex flex-col gap-1 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Save className="w-4 h-4" />
+                <span className="text-[10px]">قوالي</span>
+              </TabsTrigger>
+              {(user?.isAdmin || user?.planDetails?.apiAccess === true) && (
+                <>
+                  <TabsTrigger value="api" className="flex flex-col gap-1 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Zap className="w-4 h-4" />
+                    <span className="text-[10px]">API</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="settings" className="flex flex-col gap-1 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Share2 className="w-4 h-4" />
+                    <span className="text-[10px]">تصدير</span>
+                  </TabsTrigger>
+                </>
+              )}
+            </TabsList>
           </div>
 
-          <div style={{ padding: "14px", display: "flex", flexDirection: "column", gap: "14px", flex: 1 }}>
-
-            {/* ══ CONTENT TAB ══ */}
-            {activeTab === "content" && (
-              <>
-                {/* Background photo */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <p style={{ ...SL, marginBottom: 0 }}>صورة الخلفية</p>
-                    {bgImage && (
-                      <button
-                        onClick={() => setCustomPhotoHeight(customPhotoHeight === 100 ? 62 : 100)}
-                        style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "none", cursor: "pointer", background: customPhotoHeight === 100 ? "#a855f7" : "#1e293b", color: customPhotoHeight === 100 ? "#ffffff" : "#94a3b8", fontFamily: "'Cairo', sans-serif", fontWeight: customPhotoHeight === 100 ? 700 : 400, transition: "all 0.2s" }}
-                      >{customPhotoHeight === 100 ? "✓ خلفية كاملة" : "خلفية كاملة"}</button>
-                    )}
-                  </div>
-                  <button onClick={() => bgInputRef.current?.click()} style={{ width: "100%", padding: "10px", background: "#0f172a", border: "1px dashed #334155", borderRadius: "8px", color: bgFileName ? "#22c55e" : "#94a3b8", cursor: "pointer", fontSize: "13px", fontFamily: "'Cairo', sans-serif", textAlign: "right" }}>
-                    {bgFileName ? `✅ ${bgFileName}` : "📁 رفع صورة الخلفية"}
-                  </button>
-                  <input ref={bgInputRef} type="file" accept="image/*" onChange={handleBgUpload} style={{ display: "none" }} />
-                  {bgImage && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px" }}>
-                      <button onClick={() => { setBgImage(null); setBgFileName(""); setBgFile(null); setBgServerFilename(""); }} style={{ fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontFamily: "'Cairo', sans-serif" }}>× حذف الصورة</button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Headline */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <p style={{ ...SL, marginBottom: 0 }}>العنوان الرئيسي</p>
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>{headline.length} حرف</span>
-                  </div>
-                  <textarea
-                    value={headline}
-                    onChange={e => setHeadline(e.target.value)}
-                    rows={4} dir="rtl"
-                    placeholder="أدخل العنوان الإخباري هنا..."
-                    style={{ width: "100%", background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "10px 12px", fontSize: "15px", fontFamily: `'${font}', sans-serif`, resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box" }}
-                  />
-                </div>
-
-                {/* Subtitle */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <p style={{ ...SL, marginBottom: 0 }}>العنوان الفرعي</p>
-                    <Toggle checked={showSubtitle} onChange={setShowSubtitle} />
-                  </div>
-                  <p style={{ fontSize: "11px", color: "#475569", margin: "0 0 8px" }}>إظهار العنوان الفرعي</p>
-                  {showSubtitle && (
-                    <input value={subtitle} onChange={e => setSubtitle(e.target.value)} dir="rtl"
-                      placeholder="مثال: BERRECHIDNEWS.COM"
-                      style={{ width: "100%", background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "9px 12px", fontSize: "13px", fontFamily: `'${font}', sans-serif`, outline: "none", boxSizing: "border-box" }} />
-                  )}
-                </div>
-
-                {/* Logo */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <p style={{ ...SL, marginBottom: 0 }}>الشعار (LOGO)</p>
-                    <Toggle checked={useLogoText} onChange={setUseLogoText} />
-                  </div>
-                  <p style={{ fontSize: "11px", color: "#475569", margin: "0 0 10px" }}>استخدام نص بدل صورة</p>
-                  {useLogoText ? (
-                    <input value={logoText} onChange={e => setLogoText(e.target.value)} dir="rtl"
-                      placeholder="اسم الموقع أو القناة..."
-                      style={{ width: "100%", background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "9px 12px", fontSize: "13px", outline: "none", fontFamily: "'Cairo', sans-serif", boxSizing: "border-box" }} />
-                  ) : (
-                    <>
-                      <button onClick={() => logoInputRef.current?.click()} style={{ width: "100%", padding: "9px", background: "#0f172a", border: "1px dashed #334155", borderRadius: "8px", color: logoFileName ? "#22c55e" : "#94a3b8", cursor: "pointer", fontSize: "13px", fontFamily: "'Cairo', sans-serif", textAlign: "right" }}>
-                        {logoFileName ? `✅ ${logoFileName}` : "📁 رفع الشعار"}
-                      </button>
-                      <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: "none" }} />
-                      {logoImage && (
-                        <>
-                          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "12px", color: "#94a3b8", marginTop: "8px" }}>
-                            <input type="checkbox" checked={logoInvert} onChange={e => setLogoInvert(e.target.checked)} />
-                            عكس ألوان الشعار (أبيض)
-                          </label>
-                          <button onClick={() => { setLogoImage(null); setLogoFileName(""); }} style={{ fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", marginTop: "4px", fontFamily: "'Cairo', sans-serif" }}>× حذف الشعار</button>
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Small text / label */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <p style={{ ...SL, marginBottom: 0 }}>النص الصغير</p>
-                    <Toggle checked={showLabel} onChange={setShowLabel} />
-                  </div>
-                  <p style={{ fontSize: "11px", color: "#475569", margin: "0 0 8px" }}>إظهار النص الصغير</p>
-                  {showLabel && (
-                    <input value={label} onChange={e => setLabel(e.target.value)} dir="rtl"
-                      placeholder="مثال: صورة من الأرشيف"
-                      style={{ width: "100%", background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "9px 12px", fontSize: "13px", outline: "none", fontFamily: "'Cairo', sans-serif", boxSizing: "border-box" }} />
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* ══ DESIGN TAB ══ */}
-            {activeTab === "design" && (
-              <>
-                <div style={SECTION}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                    <p style={{ ...SL, marginBottom: 0 }}>قوالب جاهزة</p>
-                    <button onClick={() => setShowSaveInput(v => !v)} style={{ fontSize: "12px", background: "#1e3a5f", color: "#93c5fd", border: "none", borderRadius: "6px", padding: "5px 10px", cursor: "pointer", fontFamily: "'Cairo', sans-serif" }}>💾 حفظ التصميم</button>
-                  </div>
-                  {showSaveInput && (
-                    <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
-                      <input autoFocus value={saveNameInput} onChange={e => setSaveNameInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") handleSaveDesign(); if (e.key === "Escape") setShowSaveInput(false); }}
-                        placeholder="اسم التصميم..." dir="rtl"
-                        style={{ flex: 1, background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "8px 10px", fontSize: "13px", outline: "none", fontFamily: "'Cairo', sans-serif" }} />
-                      <button onClick={handleSaveDesign} style={{ padding: "8px 12px", background: "#22c55e", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontFamily: "'Cairo', sans-serif" }}>حفظ</button>
-                      <button onClick={() => setShowSaveInput(false)} style={{ padding: "8px", background: "#1e293b", color: "#94a3b8", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer" }}>✕</button>
-                    </div>
-                  )}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
-                    {TEMPLATES.map(t => {
-                      const isSelected = selectedTemplateId === t.id;
-                      const isFade = t.id === "slate-fade" || t.id === "overlay-only";
-                      const photoH = t.photoHeight ?? 62;
-                      const bannerH = 100 - photoH;
-                      return (
-                        <button key={t.id} onClick={() => setSelectedTemplateId(t.id)} style={{
-                          padding: 0, borderRadius: "10px", overflow: "hidden", cursor: "pointer",
-                          border: isSelected ? "2px solid #3b82f6" : "2px solid #1e293b",
-                          boxShadow: isSelected ? "0 0 0 3px rgba(59,130,246,0.3)" : "none",
-                          transition: "all 0.15s", background: "none", display: "flex", flexDirection: "column",
-                          height: "72px",
-                        }}>
-                          {/* Photo area */}
-                          <div style={{
-                            flex: isFade ? "1 1 100%" : `0 0 ${photoH * 0.72}px`,
-                            background: t.isLight
-                              ? "linear-gradient(135deg,#e2e8f0,#f1f5f9)"
-                              : "linear-gradient(135deg,#1a2035,#2d3748)",
-                            position: "relative",
-                            ...(isFade ? {
-                              background: t.bannerGradient || t.bannerColor,
-                              display: "flex", alignItems: "flex-end",
-                              padding: "6px",
-                            } : {}),
-                          }}>
-                            {isFade && (
-                              <span style={{ color: t.textColor, fontSize: "9px", fontWeight: 700, fontFamily: "'Cairo',sans-serif", lineHeight: 1 }}>{t.name}</span>
-                            )}
-                          </div>
-                          {/* Banner area */}
-                          {!isFade && (
-                            <div style={{
-                              flex: `0 0 ${bannerH * 0.72}px`,
-                              background: t.bannerGradient || t.bannerColor,
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              padding: "4px",
-                            }}>
-                              <span style={{ color: t.textColor, fontSize: "10px", fontWeight: 700, fontFamily: "'Cairo',sans-serif", lineHeight: 1 }}>{t.name}</span>
-                            </div>
+          <ScrollArea className="flex-1">
+            <div className="p-5 flex flex-col gap-6">
+              
+              <TabsContent value="content" className="m-0 space-y-6">
+                <Accordion type="multiple" defaultValue={["item-bg", "item-text", "item-logo"]} className="w-full space-y-4">
+                  
+                  {/* Background Section */}
+                  <AccordionItem value="item-bg" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">صورة الخلفية</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-2 space-y-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wider">اختيار ملف</Label>
+                          {bgImage && (
+                            <Button 
+                              variant={customPhotoHeight === 100 ? "default" : "outline"} 
+                              size="sm" 
+                              className="h-7 text-[10px] px-2"
+                              onClick={() => setCustomPhotoHeight(customPhotoHeight === 100 ? 62 : 100)}
+                            >
+                              {customPhotoHeight === 100 ? "✓ خلفية كاملة" : "خلفية كاملة"}
+                            </Button>
                           )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Custom colors */}
-                <div style={SECTION}>
-                  <p style={SL}>إعدادات مخصصة</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {[
-                      { label: "لون الشريط", value: customBannerColor, onChange: setCustomBannerColor },
-                      { label: "لون النص",   value: customTextColor,  onChange: setCustomTextColor },
-                    ].map(({ label: lbl, value, onChange }) => (
-                      <div key={lbl} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0f172a", borderRadius: "8px", padding: "8px 12px" }}>
-                        <div>
-                          <span style={{ fontSize: "13px", color: "#cbd5e1" }}>{lbl}</span>
-                          <div style={{ fontSize: "11px", color: "#475569", fontFamily: "monospace" }}>{value}</div>
                         </div>
-                        <input type="color" value={value} onChange={e => onChange(e.target.value)} style={{ width: "36px", height: "36px", borderRadius: "6px", cursor: "pointer", border: "none", background: "none" }} />
-                      </div>
-                    ))}
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#94a3b8", marginBottom: "4px" }}>
-                        <span>ارتفاع الصورة %</span>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span>{customPhotoHeight}%</span>
-                          <button
-                            onClick={() => setCustomPhotoHeight(customPhotoHeight === 100 ? 62 : 100)}
-                            title="خلفية كاملة"
-                            style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "6px", border: "none", cursor: "pointer", background: customPhotoHeight === 100 ? "#a855f7" : "#1e293b", color: customPhotoHeight === 100 ? "#fff" : "#94a3b8", fontFamily: "'Cairo', sans-serif", transition: "background 0.2s" }}
-                          >خلفية كاملة</button>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontSize: "11px", color: "#475569" }}>40%</span>
-                        <input type="range" min={40} max={100} value={customPhotoHeight} onChange={e => setCustomPhotoHeight(+e.target.value)} style={{ flex: 1 }} />
-                        <span style={{ fontSize: "11px", color: "#475569" }}>100%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Custom overlay PNG */}
-                <div style={SECTION}>
-                  <p style={SL}>إطار / تصميم مخصص (Overlay)</p>
-                  <p style={{ fontSize: "11px", color: "#475569", margin: "0 0 10px" }}>
-                    ارفع صورة PNG شفافة تُوضع فوق البطاقة كاملة (إطار، شعار ضخم، تأثير...)
-                  </p>
-                  <button onClick={() => overlayInputRef.current?.click()} style={{ width: "100%", padding: "10px", background: "#0f172a", border: `1px dashed ${overlayImage ? "#a855f7" : "#334155"}`, borderRadius: "8px", color: overlayImage ? "#c084fc" : "#94a3b8", cursor: "pointer", fontSize: "13px", fontFamily: "'Cairo', sans-serif", textAlign: "right" }}>
-                    {overlayFileName ? `✅ ${overlayFileName}` : "📁 رفع صورة الإطار (PNG)"}
-                  </button>
-                  <input ref={overlayInputRef} type="file" accept="image/png,image/*" onChange={handleOverlayUpload} style={{ display: "none" }} />
-                  {overlayImage && (
-                    <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
-                      <img src={overlayImage} alt="overlay preview" style={{ height: "40px", borderRadius: "4px", border: "1px solid #334155", objectFit: "contain", background: "repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 0 0/10px 10px" }} />
-                      <button onClick={() => { setOverlayImage(null); setOverlayFileName(""); setOverlayServerFilename(""); }} style={{ fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontFamily: "'Cairo', sans-serif" }}>× حذف الإطار</button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* ══ SAVED TAB ══ */}
-            {activeTab === "saved" && (
-              <>
-                {/* ══ API Templates Section ══ */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                    <div>
-                      <p style={{ ...SL, marginBottom: 2 }}>قوالب API</p>
-                      <p style={{ fontSize: "11px", color: "#64748b", margin: 0 }}>قالب يحفظ كل الإعدادات — تستخدمه بـ ID في n8n</p>
-                    </div>
-                    <button onClick={() => { setShowApiTemplateSave(true); setEditingTplId(null); setApiTplName(""); setApiTplSlug(""); }}
-                      style={{ fontSize: "12px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: "6px", padding: "6px 11px", cursor: "pointer", fontFamily: "'Cairo', sans-serif", whiteSpace: "nowrap" }}>
-                      + قالب API جديد
-                    </button>
-                  </div>
-
-                  {showApiTemplateSave && (
-                    <div style={{ background: "#0f172a", border: "1px solid #7c3aed", borderRadius: "10px", padding: "12px", marginBottom: "12px" }}>
-                      <p style={{ fontSize: "12px", color: "#a78bfa", marginBottom: "8px", fontFamily: "'Cairo', sans-serif" }}>
-                        {editingTplId !== null ? `تعديل القالب #${editingTplId}` : "إنشاء قالب API جديد من الإعدادات الحالية"}
-                      </p>
-                      <input value={apiTplName} onChange={e => setApiTplName(e.target.value)}
-                        placeholder="اسم القالب (مثل: قالب الرياضة)" dir="rtl"
-                        style={{ width: "100%", background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "8px 10px", fontSize: "13px", outline: "none", fontFamily: "'Cairo', sans-serif", marginBottom: "8px", boxSizing: "border-box" }} />
-                      <input value={apiTplSlug} onChange={e => setApiTplSlug(e.target.value.replace(/[^a-z0-9\-_]/gi, "").toLowerCase())}
-                        placeholder="slug اختياري (مثل: sport-template) — للاستخدام بدل الرقم" dir="ltr"
-                        style={{ width: "100%", background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "8px 10px", fontSize: "13px", outline: "none", fontFamily: "monospace", marginBottom: "8px", boxSizing: "border-box" }} />
-                      <p style={{ fontSize: "11px", color: "#64748b", marginBottom: "8px" }}>
-                        سيحفظ: الخط، الحجم، الألوان، ارتفاع الصورة، العنوان الفرعي، اللوغو، الـ subtitle، الـ label
-                      </p>
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <button onClick={handleSaveApiTemplate} disabled={apiTplSaving || !apiTplName.trim()}
-                          style={{ flex: 1, padding: "8px", background: apiTplSaving ? "#4c1d95" : "#7c3aed", color: "#fff", border: "none", borderRadius: "8px", cursor: apiTplSaving ? "wait" : "pointer", fontSize: "13px", fontFamily: "'Cairo', sans-serif" }}>
-                          {apiTplSaving ? "⏳ جاري الحفظ..." : (editingTplId !== null ? "تحديث القالب" : "حفظ القالب")}
-                        </button>
-                        <button onClick={() => { setShowApiTemplateSave(false); setEditingTplId(null); }}
-                          style={{ padding: "8px 12px", background: "#1e293b", color: "#94a3b8", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer" }}>✕</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {apiTemplates.length === 0 ? (
-                    <div style={{ textAlign: "center", color: "#64748b", padding: "24px 0", fontSize: "13px" }}>
-                      <div style={{ fontSize: "28px", marginBottom: "6px" }}>🗂️</div>
-                      لا توجد قوالب API بعد — أنشئ قالباً أولاً
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      {apiTemplates.map(t => (
-                        <div key={t.id} style={{ background: "#1a1030", borderRadius: "10px", padding: "10px 12px", border: "1px solid #3b1d6e" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                            <span style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0" }}>{t.name}</span>
-                            <div style={{ display: "flex", gap: "4px" }}>
-                              <button onClick={() => handleEditApiTemplate(t)}
-                                style={{ padding: "3px 8px", fontSize: "11px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #1e4080", borderRadius: "6px", cursor: "pointer" }}>تعديل</button>
-                              <button onClick={() => handleDeleteApiTemplate(t.id)}
-                                style={{ padding: "3px 8px", fontSize: "11px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "6px", cursor: "pointer" }}>حذف</button>
+                        <div 
+                          className={cn(
+                            "group relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all cursor-pointer",
+                            bgFileName ? "border-primary/50 bg-primary/5" : "border-muted-foreground/20 hover:border-primary/50 hover:bg-muted/50"
+                          )}
+                          onClick={() => bgInputRef.current?.click()}
+                        >
+                          {bgFileName ? (
+                            <div className="flex flex-col items-center gap-2 text-center">
+                              <CheckCircle2 className="w-8 h-8 text-primary animate-in zoom-in duration-300" />
+                              <div className="text-xs font-medium truncate max-w-[200px]">{bgFileName}</div>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBgImage(null); setBgFileName(""); setBgFile(null); setBgServerFilename("");
+                                }}
+                              >
+                                حذف الصورة
+                              </Button>
                             </div>
+                          ) : (
+                            <>
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                <ImageIcon className="w-5 h-5 text-primary" />
+                              </div>
+                              <p className="text-xs font-medium">اضغط لرفع صورة</p>
+                              <p className="text-[10px] text-muted-foreground mt-1 text-center">PNG, JPG حتى 5MB</p>
+                            </>
+                          )}
+                          <input ref={bgInputRef} type="file" accept="image/*" onChange={handleBgUpload} className="hidden" />
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Text Content Section */}
+                  <AccordionItem value="item-text" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Type className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">نصوص البطاقة</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-2 space-y-4">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wider">العنوان الرئيسي</Label>
+                          <textarea 
+                            value={headline} 
+                            onChange={e => setHeadline(e.target.value)}
+                            className="w-full min-h-[100px] p-3 rounded-lg bg-muted/50 border-input text-sm resize-none focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                            placeholder="أدخل العنوان هنا..."
+                            dir="rtl"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground uppercase tracking-wider">العنوان الفرعي</Label>
+                            <Switch checked={showSubtitle} onCheckedChange={setShowSubtitle} />
                           </div>
+                          {showSubtitle && (
+                            <Input 
+                              value={subtitle} 
+                              onChange={e => setSubtitle(e.target.value)}
+                              placeholder="أدخل العنوان الفرعي..."
+                              className="bg-muted/50"
+                              dir="rtl"
+                            />
+                          )}
+                        </div>
 
-                          {/* ID badge — main API identifier */}
-                          <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "6px", flexWrap: "wrap" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "#0f2557", borderRadius: "6px", padding: "3px 8px" }}>
-                              <span style={{ fontSize: "10px", color: "#93c5fd" }}>ID الرقمي:</span>
-                              <code style={{ fontSize: "12px", color: "#60a5fa", fontFamily: "monospace", fontWeight: 700 }}>{t.id}</code>
-                              <button onClick={() => navigator.clipboard.writeText(String(t.id))}
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "#60a5fa", fontSize: "10px", padding: "0 2px" }}>📋</button>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground uppercase tracking-wider">التصنيف / التاريخ</Label>
+                            <Switch checked={showLabel} onCheckedChange={setShowLabel} />
+                          </div>
+                          {showLabel && (
+                            <Input 
+                              value={label} 
+                              onChange={e => setLabel(e.target.value)}
+                              placeholder="عاجل، رياضة، السبت..."
+                              className="bg-muted/50"
+                              dir="rtl"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Logo Section */}
+                  <AccordionItem value="item-logo" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">الشعار (Logo)</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-2 space-y-4">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <div className="space-y-0.5">
+                            <Label className="text-sm font-medium">استخدام نص بديل</Label>
+                            <p className="text-[10px] text-muted-foreground">استخدام الكلمة بدلاً من الصورة</p>
+                          </div>
+                          <Switch checked={useLogoText} onCheckedChange={setUseLogoText} />
+                        </div>
+
+                        {useLogoText ? (
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">نص الشعار</Label>
+                            <Input 
+                              value={logoText} 
+                              onChange={e => setLogoText(e.target.value)}
+                              placeholder="اسم القناة..."
+                              className="bg-muted/50"
+                              dir="rtl"
+                            />
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <Label className="text-xs text-muted-foreground uppercase tracking-wider">رفع الشعار</Label>
+                            <div 
+                              className={cn(
+                                "group relative flex items-center gap-3 p-3 border-2 border-dashed rounded-xl transition-all cursor-pointer",
+                                logoFileName ? "border-primary/50 bg-primary/5" : "border-muted-foreground/20 hover:border-primary/50 hover:bg-muted/50"
+                              )}
+                              onClick={() => logoInputRef.current?.click()}
+                            >
+                              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                <Zap className="w-5 h-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{logoFileName || "اختر صورة الشعار"}</p>
+                                <p className="text-[10px] text-muted-foreground">PNG شفاف يفضل</p>
+                              </div>
+                              {logoFileName && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 text-destructive px-2"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLogoImage(null); setLogoFileName(""); setLogoServerFilename("");
+                                  }}
+                                >
+                                  حذف
+                                </Button>
+                              )}
+                              <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                             </div>
-                            {t.slug && (
-                              <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "#0c2340", borderRadius: "6px", padding: "3px 8px" }}>
-                                <span style={{ fontSize: "10px", color: "#7dd3fc" }}>slug:</span>
-                                <code style={{ fontSize: "12px", color: "#38bdf8", fontFamily: "monospace" }}>{t.slug}</code>
-                                <button onClick={() => navigator.clipboard.writeText(t.slug!)}
-                                  style={{ background: "none", border: "none", cursor: "pointer", color: "#38bdf8", fontSize: "10px", padding: "0 2px" }}>📋</button>
+                            {logoImage && (
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                                <span className="text-xs">عكس ألوان الشعار</span>
+                                <Switch checked={logoInvert} onCheckedChange={setLogoInvert} />
                               </div>
                             )}
                           </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                          {/* Summary of stored settings */}
-                          <div style={{ fontSize: "10px", color: "#64748b", lineHeight: 1.7 }}>
-                            <span style={{ marginLeft: "8px" }}>📐 {t.aspectRatio}</span>
-                            <span style={{ marginLeft: "8px" }}>🔤 {t.font} {t.fontSize}px</span>
-                            <span style={{ marginLeft: "8px" }}>📸 {t.photoHeight}%</span>
-                            {t.subtitle && <span style={{ marginLeft: "8px" }}>💬 {t.subtitle.slice(0, 20)}</span>}
-                            {t.logoText  && <span style={{ marginLeft: "8px" }}>🏷️ {t.logoText}</span>}
-                            {t.overlayUrl && <span style={{ marginLeft: "8px", color: "#a855f7", fontWeight: 600 }}>🖼️ إطار مخصص ✓</span>}
-                            {t.logoUrl   && !t.logoText && <span style={{ marginLeft: "8px", color: "#60a5fa" }}>🏷️ شعار محفوظ ✓</span>}
-                          </div>
+                </Accordion>
+              </TabsContent>
 
-                          {/* n8n usage hint */}
-                          <div style={{ marginTop: "6px", background: "#0f172a", borderRadius: "6px", padding: "5px 8px" }}>
-                            <p style={{ fontSize: "10px", color: "#475569", margin: "0 0 2px", fontFamily: "monospace" }}>استخدام في n8n / API:</p>
-                            <code style={{ fontSize: "10px", color: "#86efac", fontFamily: "monospace" }}>
-                              {`"templateId": ${t.slug ? `"${t.slug}"` : t.id}`}
-                            </code>
+              <TabsContent value="design" className="m-0 space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
+                <Accordion type="multiple" defaultValue={["item-tpl", "item-style", "item-overlay"]} className="w-full space-y-4">
+                  
+                  {/* Template Selection */}
+                  <AccordionItem value="item-tpl" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Palette className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">القوالب الجاهزة</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        {TEMPLATES.map(t => {
+                          const isSelected = selectedTemplateId === t.id;
+                          const isFade = t.id === "slate-fade" || t.id === "overlay-only";
+                          const photoH = t.photoHeight ?? 62;
+                          const bannerH = 100 - photoH;
+                          return (
+                            <Button
+                              key={t.id}
+                              variant="outline"
+                              className={cn(
+                                "h-20 p-0 flex flex-col items-stretch overflow-hidden relative group border-2",
+                                isSelected ? "border-primary bg-primary/5" : "hover:border-primary/30"
+                              )}
+                              onClick={() => setSelectedTemplateId(t.id)}
+                            >
+                              {/* Preview mock */}
+                              <div className="flex-1 flex flex-col w-full">
+                                <div style={{ 
+                                  height: isFade ? '100%' : `${photoH}%`,
+                                  background: t.isLight ? 'linear-gradient(135deg,#e2e8f0,#f1f5f9)' : 'linear-gradient(135deg,#1e293b,#0f172a)' 
+                                }} className="w-full relative">
+                                  {isFade && (
+                                    <div style={{ background: t.bannerGradient || t.bannerColor }} className="absolute inset-0 opacity-40"></div>
+                                  )}
+                                </div>
+                                {!isFade && (
+                                  <div style={{ height: `${bannerH}%`, background: t.bannerGradient || t.bannerColor }} className="w-full"></div>
+                                )}
+                              </div>
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="text-[10px] text-white font-bold">{t.name}</span>
+                              </div>
+                              {isSelected && (
+                                <div className="absolute top-1 right-1">
+                                  <CheckCircle2 className="w-3 h-3 text-primary bg-white rounded-full" />
+                                </div>
+                              )}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Custom Style */}
+                  <AccordionItem value="item-style" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">ألوان وقياسات مخصصة</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-4 space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] text-muted-foreground uppercase">لون الشريط</Label>
+                          <div className="flex items-center gap-2 p-1 border rounded-lg bg-muted/30">
+                            <input 
+                              type="color" 
+                              value={customBannerColor} 
+                              onChange={e => setCustomBannerColor(e.target.value)}
+                              className="w-8 h-8 rounded border-none cursor-pointer bg-transparent"
+                            />
+                            <span className="text-xs font-mono uppercase">{customBannerColor}</span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div className="space-y-2">
+                          <Label className="text-[10px] text-muted-foreground uppercase">لون النص</Label>
+                          <div className="flex items-center gap-2 p-1 border rounded-lg bg-muted/30">
+                            <input 
+                              type="color" 
+                              value={customTextColor} 
+                              onChange={e => setCustomTextColor(e.target.value)}
+                              className="w-8 h-8 rounded border-none cursor-pointer bg-transparent"
+                            />
+                            <span className="text-xs font-mono uppercase">{customTextColor}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground">ارتفاع الصورة</Label>
+                          <span className="text-xs font-bold text-primary">{customPhotoHeight}%</span>
+                        </div>
+                        <Slider 
+                          value={[customPhotoHeight]} 
+                          onValueChange={([v]) => setCustomPhotoHeight(v)}
+                          min={40} 
+                          max={100} 
+                          step={1}
+                        />
+                        <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                          <span>صغيرة</span>
+                          <Button 
+                            variant="link" 
+                            className="h-auto p-0 text-primary text-[10px]"
+                            onClick={() => setCustomPhotoHeight(100)}
+                          >خلفية كاملة</Button>
+                          <span>100%</span>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Overlay PNG */}
+                  <AccordionItem value="item-overlay" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">إطار مخصص (Overlay)</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-2 space-y-4">
+                      <div className="space-y-3">
+                        <div 
+                          className={cn(
+                            "group relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all cursor-pointer",
+                            overlayFileName ? "border-primary/50 bg-primary/5" : "border-muted-foreground/20 hover:border-primary/50 hover:bg-muted/50"
+                          )}
+                          onClick={() => overlayInputRef.current?.click()}
+                        >
+                          {overlayFileName ? (
+                            <div className="flex flex-col items-center gap-2 text-center">
+                              <CheckCircle2 className="w-8 h-8 text-primary" />
+                              <div className="text-xs font-medium truncate max-w-[200px]">{overlayFileName}</div>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={(e) => { e.stopPropagation(); overlayInputRef.current?.click(); }}>تغيير</Button>
+                                <Button size="sm" variant="ghost" className="h-6 text-[10px] text-destructive" onClick={(e) => { e.stopPropagation(); setOverlayImage(null); setOverlayFileName(""); setOverlayServerFilename(""); }}>حذف</Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <Layers className="w-6 h-6 text-muted-foreground mb-2" />
+                              <p className="text-xs font-medium">رفع إطار PNG</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">يُوضع فوق البطاقة بالكامل</p>
+                            </>
+                          )}
+                          <input ref={overlayInputRef} type="file" accept="image/png,image/*" onChange={handleOverlayUpload} className="hidden" />
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+                
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={() => setShowSaveInput(v => !v)} className="flex-1 gap-2">
+                    <Save className="w-4 h-4" /> حفظ التصميم الحالي
+                  </Button>
                 </div>
 
-                {/* ══ Local Saved Designs Section ══ */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                    <p style={{ ...SL, marginBottom: 0 }}>تصاميم محلية محفوظة</p>
-                    <button onClick={() => setShowSaveInput(true)} style={{ fontSize: "12px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", cursor: "pointer", fontFamily: "'Cairo', sans-serif" }}>+ حفظ الحالي</button>
-                  </div>
-                  {showSaveInput && (
-                    <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
-                      <input autoFocus value={saveNameInput} onChange={e => setSaveNameInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") handleSaveDesign(); if (e.key === "Escape") setShowSaveInput(false); }}
-                        placeholder="اسم التصميم..." dir="rtl"
-                        style={{ flex: 1, background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "8px 10px", fontSize: "13px", outline: "none", fontFamily: "'Cairo', sans-serif" }} />
-                      <button onClick={handleSaveDesign} style={{ padding: "8px 12px", background: "#22c55e", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontFamily: "'Cairo', sans-serif" }}>حفظ</button>
-                      <button onClick={() => setShowSaveInput(false)} style={{ padding: "8px", background: "#1e293b", color: "#94a3b8", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer" }}>✕</button>
-                    </div>
-                  )}
-                  <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
-                    <button onClick={exportDesigns} style={{ flex: 1, padding: "8px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #1e4080", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontFamily: "'Cairo', sans-serif" }}>📤 تصدير JSON</button>
-                    <button onClick={() => importRef.current?.click()} style={{ flex: 1, padding: "8px", background: "#1e293b", color: "#94a3b8", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontFamily: "'Cairo', sans-serif" }}>📥 استيراد JSON</button>
-                    <input ref={importRef} type="file" accept=".json" onChange={importDesigns} style={{ display: "none" }} />
-                  </div>
-                </div>
-
-                {savedDesigns.length === 0 ? (
-                  <div style={{ textAlign: "center", color: "#64748b", padding: "28px 0", fontSize: "14px" }}>
-                    <div style={{ fontSize: "32px", marginBottom: "8px" }}>💾</div>
-                    لا توجد تصاميم محلية بعد
-                  </div>
-                ) : (
-                  savedDesigns.map(d => (
-                    <div key={d.id} style={{ background: "#1a2035", borderRadius: "10px", padding: "12px", border: "1px solid #1e293b" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                        <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>{d.name}</span>
-                        <span style={{ fontSize: "11px", color: "#64748b" }}>{new Date(d.createdAt).toLocaleDateString("ar-SA")}</span>
+                {showSaveInput && (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="pt-4 space-y-3">
+                      <Label className="text-xs">اسم التصميم</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          autoFocus 
+                          value={saveNameInput} 
+                          onChange={e => setSaveNameInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") handleSaveDesign(); if (e.key === "Escape") setShowSaveInput(false); }}
+                          placeholder="مثال: خبر عاجل أحمر"
+                          className="bg-background h-9"
+                        />
+                        <Button size="sm" onClick={handleSaveDesign}>حفظ</Button>
                       </div>
-                      <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "10px" }}>
-                        {TEMPLATES.find(t => t.id === d.settings.selectedTemplateId)?.name} · {d.settings.font}
-                      </div>
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <button onClick={() => handleLoadDesign(d)} style={{ flex: 1, padding: "7px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontFamily: "'Cairo', sans-serif" }}>تطبيق</button>
-                        <button onClick={() => setSavedDesigns(prev => prev.filter(x => x.id !== d.id))} style={{ padding: "7px 12px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "8px", cursor: "pointer", fontSize: "12px" }}>×</button>
-                      </div>
-                    </div>
-                  ))
+                    </CardContent>
+                  </Card>
                 )}
-              </>
-            )}
+              </TabsContent>
 
-            {/* ══ TYPOGRAPHY TAB ══ */}
-            {activeTab === "typography" && (
-              <>
-                <div style={SECTION}>
-                  <p style={SL}>الخط العربي</p>
-                  <select value={font} onChange={e => setFont(e.target.value)} style={{ width: "100%", background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "10px 12px", fontSize: "14px", outline: "none", fontFamily: `'${font}', sans-serif`, cursor: "pointer" }}>
-                    {ARABIC_FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                  </select>
-                  <p style={{ fontSize: "20px", fontFamily: `'${font}', sans-serif`, color: "#e2e8f0", marginTop: "12px", textAlign: "right", lineHeight: 1.6, direction: "rtl" }}>
-                    هذا مثال على الخط المختار
-                  </p>
-                </div>
+              <TabsContent value="saved" className="m-0 space-y-6">
+                <Card>
+                  <CardHeader className="pb-3 flex-row items-center justify-between space-y-0">
+                    <div>
+                      <CardTitle className="text-sm font-bold">قوالب API</CardTitle>
+                      <CardDescription className="text-[10px]">قوالب سحابية للاستخدام البرمجي</CardDescription>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      onClick={() => { setShowApiTemplateSave(true); setEditingTplId(null); setApiTplName(""); setApiTplSlug(""); }}
+                    >
+                      + جديد
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {showApiTemplateSave && (
+                      <div className="p-3 border rounded-lg bg-primary/5 space-y-3">
+                        <div className="space-y-2">
+                          <Label className="text-xs">اسم القالب</Label>
+                          <Input 
+                            value={apiTplName} 
+                            onChange={e => setApiTplName(e.target.value)}
+                            placeholder="قالب الأخبار اليومي..."
+                            className="bg-background h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Slug (اختياري)</Label>
+                          <Input 
+                            value={apiTplSlug} 
+                            onChange={e => setApiTplSlug(e.target.value.toLowerCase())}
+                            placeholder="news-tpl"
+                            className="bg-background h-8 text-xs font-mono"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" className="flex-1 h-8" onClick={handleSaveApiTemplate} disabled={apiTplSaving}>
+                            {apiTplSaving ? "جاري..." : "حفظ"}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8" onClick={() => setShowApiTemplateSave(false)}>✕</Button>
+                        </div>
+                      </div>
+                    )}
 
-                <div style={SECTION}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#94a3b8", marginBottom: "8px" }}>
-                    <span>حجم النص</span><span>{fontSize}px</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontSize: "11px", color: "#475569" }}>14px</span>
-                    <input type="range" min={14} max={48} value={fontSize} onChange={e => setFontSize(+e.target.value)} style={{ flex: 1 }} />
-                    <span style={{ fontSize: "11px", color: "#475569" }}>48px</span>
-                  </div>
-                </div>
+                    <div className="space-y-2">
+                      {apiTemplates.length === 0 ? (
+                        <div className="text-center py-6 border-2 border-dashed rounded-lg text-muted-foreground">
+                          <AlertCircle className="w-8 h-8 mx-auto opacity-20 mb-2" />
+                          <p className="text-xs">لا توجد قوالب API حالياً</p>
+                        </div>
+                      ) : (
+                        apiTemplates.map(t => (
+                          <div key={t.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors group">
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold truncate">{t.name}</p>
+                              <div className="flex gap-2 mt-1">
+                                <span className="text-[9px] bg-muted px-1.5 py-0.5 rounded font-mono">ID: {t.id}</span>
+                                {t.slug && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-mono">@{t.slug}</span>}
+                              </div>
+                            </div>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleEditApiTemplate(t)}>
+                                <Move className="w-3 h-3" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => handleDeleteApiTemplate(t.id)}>
+                                <AlertCircle className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
 
-                <div style={SECTION}>
-                  <p style={SL}>وزن الخط</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "6px" }}>
-                    {FONT_WEIGHTS.map(w => (
-                      <button key={w} onClick={() => setFontWeight(w)} style={{ padding: "8px 4px", borderRadius: "8px", border: fontWeight === w ? "2px solid #3b82f6" : "2px solid #1e293b", background: fontWeight === w ? "#1e3a5f" : "#0f172a", color: fontWeight === w ? "#93c5fd" : "#94a3b8", cursor: "pointer", fontSize: "12px", fontWeight: w, fontFamily: "'Cairo', sans-serif" }}>
-                        {w}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-bold">تصاميم محلية</CardTitle>
+                    <CardDescription className="text-[10px]">محفوظة في متصفحك الحالي</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {savedDesigns.length === 0 ? (
+                      <p className="text-center text-xs text-muted-foreground py-4">لا توجد تصاميم محفوظة</p>
+                    ) : (
+                      savedDesigns.map(d => (
+                        <div key={d.id} className="flex items-center justify-between p-2 border rounded-lg group">
+                          <span className="text-xs font-medium truncate flex-1">{d.name}</span>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleLoadDesign(d)}>تحميل</Button>
+                        </div>
+                      ))
+                    )}
+                    <div className="flex gap-2 pt-2 border-t mt-4">
+                      <Button variant="outline" size="sm" className="flex-1 text-[10px]" onClick={exportDesigns}>تصدير الكل</Button>
+                      <Button variant="outline" size="sm" className="flex-1 text-[10px]" onClick={() => importRef.current?.click()}>استيراد JSON</Button>
+                      <input ref={importRef} type="file" accept=".json" onChange={importDesigns} className="hidden" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                <div style={SECTION}>
-                  <p style={SL}>تأثيرات</p>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "13px", color: "#94a3b8" }}>ظل النص</span>
-                    <Toggle checked={textShadow} onChange={setTextShadow} />
-                  </div>
-                </div>
+              <TabsContent value="typography" className="m-0 space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
+                <Accordion type="multiple" defaultValue={["item-font", "item-align"]} className="w-full space-y-4">
+                  
+                  {/* Font Selection */}
+                  <AccordionItem value="item-font" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Type className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">الخط العربي</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-2 space-y-6">
+                      <div className="space-y-3">
+                        <Label className="text-xs text-muted-foreground uppercase">اختر الخط</Label>
+                        <select 
+                          value={font} 
+                          onChange={e => setFont(e.target.value)} 
+                          className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-input text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium appearance-none"
+                          style={{ fontFamily: `'${font}', sans-serif` }}
+                        >
+                          {ARABIC_FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                        </select>
+                        <div 
+                          className="p-6 rounded-lg bg-muted/30 text-center border overflow-hidden min-h-[80px] flex items-center justify-center"
+                          style={{ fontFamily: `'${font}', sans-serif`, fontSize: `${fontSize}px`, fontWeight: fontWeight, textShadow: textShadow ? "0 1px 4px rgba(0,0,0,0.3)" : "none" }}
+                        >
+                          {headline || "هذا مثال على الخط"}
+                        </div>
+                        
+                        <div className="space-y-4 pt-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">حجم النص</Label>
+                            <span className="text-xs font-bold text-primary">{fontSize}px</span>
+                          </div>
+                          <Slider 
+                            value={[fontSize]} 
+                            onValueChange={([v]) => setFontSize(v)}
+                            min={14} 
+                            max={48} 
+                            step={1}
+                          />
+                        </div>
 
-                {/* ── Text alignment per element ── */}
-                {(() => {
-                  const AlignBtn = ({ align, current, onChange }: { align: TextAlign; current: TextAlign; onChange: (v: TextAlign) => void }) => {
-                    const icons: Record<TextAlign, string> = { right: "←", center: "≡", left: "→" };
-                    const labels: Record<TextAlign, string> = { right: "يمين", center: "وسط", left: "يسار" };
-                    const active = align === current;
-                    return (
-                      <button onClick={() => onChange(align)} style={{ flex: 1, padding: "7px 4px", borderRadius: "7px", border: active ? "2px solid #3b82f6" : "2px solid #1e293b", background: active ? "#1e3a5f" : "#0f172a", color: active ? "#93c5fd" : "#64748b", cursor: "pointer", fontSize: "12px", fontFamily: "'Cairo', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-                        <span style={{ fontSize: "14px", fontWeight: 700 }}>{icons[align]}</span>
-                        <span>{labels[align]}</span>
-                      </button>
-                    );
-                  };
-                  const items: { label: string; value: TextAlign; set: (v: TextAlign) => void }[] = [
-                    { label: "العنوان الرئيسي", value: headlineAlign, set: setHeadlineAlign },
-                    { label: "النص الفرعي",     value: subtitleAlign, set: setSubtitleAlign },
-                    { label: "التسمية",          value: labelAlign,   set: setLabelAlign },
-                  ];
-                  return (
-                    <div style={SECTION}>
-                      <p style={SL}>محاذاة النص</p>
-                      {items.map(item => (
-                        <div key={item.label} style={{ marginBottom: "12px" }}>
-                          <p style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>{item.label}</p>
-                          <div style={{ display: "flex", gap: "6px" }}>
-                            {(["right", "center", "left"] as TextAlign[]).map(a => (
-                              <AlignBtn key={a} align={a} current={item.value} onChange={item.set} />
+                        <div className="space-y-4 pt-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">وزن الخط</Label>
+                            <span className="text-xs font-bold text-primary">{fontWeight}</span>
+                          </div>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {[300, 400, 500, 600, 700].map(w => (
+                              <Button
+                                key={w}
+                                variant={fontWeight === w ? "default" : "outline"}
+                                className="h-8 p-0 text-[10px]"
+                                onClick={() => setFontWeight(w)}
+                              >
+                                {w}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <div className="space-y-0.5">
+                            <Label className="text-sm font-medium">ظل النص</Label>
+                            <p className="text-[10px] text-muted-foreground">إضافة عمق للنص</p>
+                          </div>
+                          <Switch checked={textShadow} onCheckedChange={setTextShadow} />
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Alignment Section */}
+                  <AccordionItem value="item-align" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Move className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">محاذاة العناصر</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-2 space-y-4">
+                      {[
+                        { label: "العنوان الرئيسي", current: headlineAlign, onChange: setHeadlineAlign },
+                        { label: "العنوان الفرعي",  current: subtitleAlign,  onChange: setSubtitleAlign },
+                        { label: "التسمية (النص الصغير)", current: labelAlign,    onChange: setLabelAlign }
+                      ].map((item, idx) => (
+                        <div key={idx} className="space-y-2">
+                          <Label className="text-[10px] text-muted-foreground uppercase">{item.label}</Label>
+                          <div className="flex gap-1 p-1 bg-muted/30 rounded-lg">
+                            {(['right', 'center', 'left'] as const).map(a => (
+                              <Button
+                                key={a}
+                                variant={item.current === a ? "default" : "ghost"}
+                                size="sm"
+                                className="flex-1 h-8 px-0"
+                                onClick={() => item.onChange(a)}
+                              >
+                                {a === 'right' ? 'يمين' : a === 'center' ? 'وسط' : 'يسار'}
+                              </Button>
                             ))}
                           </div>
                         </div>
                       ))}
-                    </div>
-                  );
-                })()}
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </TabsContent>
 
-                {/* Live text preview */}
-                <div style={{ background: "#ffffff", borderRadius: "12px", padding: "16px", direction: "rtl" }}>
-                  <p style={{ fontSize: "11px", color: "#888", marginBottom: "8px", fontFamily: "Inter" }}>معاينة نص</p>
-                  <p style={{
-                    fontFamily: `'${font}', sans-serif`, fontSize: `${fontSize}px`,
-                    fontWeight: fontWeight, color: "#111",
-                    textShadow: textShadow ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
-                    lineHeight: 1.5, margin: 0,
-                  }}>
-                    {headline || "أدخل العنوان هنا..."}
-                  </p>
-                </div>
-              </>
-            )}
-
-            {/* ══ API TAB ══ */}
-            {activeTab === "api" && (
-              <>
-                {/* ── API Key section ── */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                    <span style={{ fontSize: "18px" }}>🔑</span>
-                    <p style={{ ...SL, marginBottom: 0 }}>مفتاح API الخاص بك</p>
-                  </div>
-                  <p style={{ fontSize: "12px", color: "#64748b", marginBottom: "10px", direction: "rtl" }}>
-                    استخدم هذا المفتاح للوصول إلى API من n8n أو أي أداة أتمتة. أرسله كـ Header بالشكل:
-                    <code style={{ display: "block", marginTop: "4px", color: "#93c5fd", fontFamily: "monospace", fontSize: "11px" }}>X-Api-Key: YOUR_KEY</code>
-                  </p>
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                    <div style={{ flex: 1, background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", padding: "9px 12px", fontFamily: "monospace", fontSize: "12px", color: apiKey ? "#a5f3fc" : "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {apiKey ? (apiKeyVisible ? apiKey : `${apiKey.slice(0, 8)}${"•".repeat(24)}`) : "جاري التحميل..."}
-                    </div>
-                    <button onClick={() => setApiKeyVisible(v => !v)} title={apiKeyVisible ? "إخفاء" : "إظهار"} style={{ padding: "9px 10px", background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer", color: "#94a3b8", fontSize: "14px" }}>
-                      {apiKeyVisible ? "🙈" : "👁️"}
-                    </button>
-                    <button onClick={() => { if (apiKey) { navigator.clipboard.writeText(apiKey); } }} style={{ padding: "9px 10px", background: "#1e3a5f", border: "1px solid #1e4080", borderRadius: "8px", cursor: "pointer", color: "#93c5fd", fontSize: "13px" }} title="نسخ">
-                      📋
-                    </button>
-                  </div>
-                  <button
-                    disabled={apiKeyRegenerating}
-                    onClick={async () => {
-                      if (!confirm("تجديد المفتاح سيُلغي المفتاح القديم. هل أنت متأكد؟")) return;
-                      setApiKeyRegenerating(true);
-                      const token = localStorage.getItem("pro_token");
-                      const res = await fetch("/api/auth/regenerate-key", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-                      const d = await res.json();
-                      if (d.apiKey) setApiKey(d.apiKey);
-                      setApiKeyRegenerating(false);
-                    }}
-                    style={{ marginTop: "8px", width: "100%", padding: "8px", background: "rgba(234,179,8,0.08)", color: "#facc15", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "8px", cursor: apiKeyRegenerating ? "wait" : "pointer", fontSize: "12px", fontFamily: "'Cairo', sans-serif" }}
-                  >
-                    {apiKeyRegenerating ? "⏳ جاري التجديد..." : "🔄 تجديد المفتاح"}
-                  </button>
-                </div>
-
-                {/* ── n8n Integration guide ── */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                    <span style={{ fontSize: "20px" }}>⚡</span>
-                    <p style={{ ...SL, marginBottom: 0 }}>ربط مع n8n</p>
-                  </div>
-                  <p style={{ fontSize: "12px", color: "#64748b", marginBottom: "12px", direction: "rtl" }}>
-                    استخدم <strong style={{ color: "#94a3b8" }}>HTTP Request</strong> node في n8n لتوليد البطاقات تلقائيًا.
-                  </p>
-
-                  {/* Steps */}
-                  {[
-                    { num: "1", title: "Method", val: "POST" },
-                    { num: "2", title: "URL", val: `${window.location.origin}/api/generate` },
-                    { num: "3", title: "Header", val: `X-Api-Key: ${apiKey || "YOUR_API_KEY"}` },
-                    { num: "4", title: "Body Type", val: "JSON" },
-                  ].map(s => (
-                    <div key={s.num} style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "8px" }}>
-                      <div style={{ minWidth: "22px", height: "22px", borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: "1px" }}>{s.num}</div>
-                      <div>
-                        <div style={{ fontSize: "11px", color: "#64748b", fontFamily: "Inter" }}>{s.title}</div>
-                        <div style={{ fontSize: "12px", color: "#a5f3fc", fontFamily: "monospace", wordBreak: "break-all" }}>{s.val}</div>
+              <TabsContent value="api" className="m-0 space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
+                {user?.plan === 'free' && !user?.isAdmin ? (
+                  <Card className="border-primary/20 bg-primary/5 overflow-hidden">
+                    <CardHeader className="text-center pb-2">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                        <Zap className="w-6 h-6 text-primary" />
                       </div>
-                      <button onClick={() => navigator.clipboard.writeText(s.val)} style={{ marginRight: "auto", padding: "3px 7px", background: "#1e293b", border: "1px solid #334155", borderRadius: "5px", cursor: "pointer", color: "#64748b", fontSize: "11px", flexShrink: 0 }}>نسخ</button>
-                    </div>
-                  ))}
-
-                  {/* JSON body example */}
-                  <p style={{ fontSize: "12px", color: "#94a3b8", margin: "12px 0 6px", fontWeight: 600 }}>Body (JSON):</p>
-                  {(() => {
-                    const example = JSON.stringify({
-                      title: "عنوان الخبر يُكتب هنا",
-                      subtitle: "المصدر: وكالة الأنباء",
-                      templateId: "classic-blue",
-                      aspectRatio: "1:1",
-                      backgroundImageUrl: "https://example.com/photo.jpg",
-                      logoText: "اسم الموقع",
-                      logoPos: "top-right",
-                      font: "Cairo",
-                      fontSize: 52,
-                      fontWeight: 700,
-                    }, null, 2);
-                    return (
-                      <div style={{ position: "relative" }}>
-                        <pre style={{ background: "#020617", border: "1px solid #1e293b", borderRadius: "8px", padding: "12px", fontSize: "10.5px", color: "#7dd3fc", fontFamily: "monospace", overflowX: "auto", margin: 0, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{example}</pre>
-                        <button onClick={() => navigator.clipboard.writeText(example)} style={{ position: "absolute", top: "8px", left: "8px", padding: "3px 8px", background: "#1e293b", border: "1px solid #334155", borderRadius: "5px", cursor: "pointer", color: "#64748b", fontSize: "11px" }}>📋 نسخ</button>
+                      <CardTitle className="text-lg">ميزات احترافية</CardTitle>
+                      <CardDescription>هذه الميزة متاحة فقط لمشتركي باقة Pro</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pb-6 text-center">
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        قم بترقية حسابك للوصول إلى مفاتيح API، ربط بوت تيليغرام الخاص بك، والأتمتة الكاملة عبر n8n.
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <Button className="w-full">ترقية إلى Pro</Button>
+                        <Button variant="ghost" className="w-full text-[10px]" onClick={() => setActiveTab("content")}>العودة للرئيسية</Button>
                       </div>
-                    );
-                  })()}
-                </div>
-
-                {/* ── Response format ── */}
-                <div style={SECTION}>
-                  <p style={{ ...SL, marginBottom: "8px" }}>شكل الرد (Response)</p>
-                  <pre style={{ background: "#020617", border: "1px solid #1e293b", borderRadius: "8px", padding: "12px", fontSize: "10.5px", color: "#86efac", fontFamily: "monospace", overflowX: "auto", margin: 0, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{JSON.stringify({
-                    id: 42,
-                    imageUrl: "/api/uploads/card_abc123.png",
-                    imageFullUrl: `${window.location.origin}/api/uploads/card_abc123.png`,
-                    aspectRatio: "1:1",
-                    createdAt: new Date().toISOString(),
-                  }, null, 2)}</pre>
-                  <p style={{ fontSize: "11px", color: "#475569", marginTop: "8px", direction: "rtl" }}>
-                    استخدم <code style={{ color: "#86efac", fontFamily: "monospace" }}>imageFullUrl</code> مباشرة في n8n للخطوات اللاحقة (إرسال تيليغرام، رفع Drive...).
-                  </p>
-                </div>
-
-                {/* ── حقول الصور المدعومة ── */}
-                <div style={SECTION}>
-                  <p style={{ ...SL, marginBottom: "8px" }}>حقول الصور المدعومة</p>
-                  {[
-                    ["backgroundImageUrl", "رابط صورة الخلفية (URL مباشر)"],
-                    ["logoImageUrl",       "رابط صورة الشعار (URL مباشر)"],
-                    ["overlayImageUrl",    "رابط صورة الإطار (URL مباشر)"],
-                    ["backgroundPhotoFilename", "اسم ملف مرفوع مسبقًا عبر /api/photo/upload"],
-                    ["logoPhotoFilename",        "اسم ملف الشعار المرفوع"],
-                    ["overlayPhotoFilename",     "اسم ملف الإطار المرفوع"],
-                  ].map(([field, desc]) => (
-                    <div key={field} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "5px 0", borderBottom: "1px solid #1e293b", gap: "8px" }}>
-                      <code style={{ fontSize: "11px", color: "#a5f3fc", fontFamily: "monospace", flexShrink: 0 }}>{field}</code>
-                      <span style={{ fontSize: "11px", color: "#64748b", textAlign: "right" }}>{desc}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* ── القوالب المتاحة ── */}
-                <div style={SECTION}>
-                  <p style={{ ...SL, marginBottom: "8px" }}>معرّفات القوالب (templateId)</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
-                    {TEMPLATES.map(t => (
-                      <button key={t.id} onClick={() => navigator.clipboard.writeText(t.id)} style={{ padding: "3px 8px", background: "#0f172a", border: "1px solid #1e293b", borderRadius: "6px", color: "#94a3b8", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" }} title="نسخ">
-                        {t.id}
-                      </button>
-                    ))}
-                  </div>
-                  <p style={{ fontSize: "11px", color: "#475569", marginTop: "6px" }}>اضغط على أي معرّف لنسخه</p>
-                </div>
-
-                {/* ── Telegram quick send ── */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
-                    <span>✈️</span>
-                    <p style={{ ...SL, marginBottom: 0 }}>إرسال سريع لتيليغرام</p>
-                  </div>
-                  <p style={{ fontSize: "12px", color: "#64748b", marginBottom: "12px", direction: "rtl" }}>إرسال البطاقة الحالية مباشرة لأي قناة أو مجموعة</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <input value={botToken} onChange={e => setBotToken(e.target.value)} placeholder="Bot Token" dir="ltr"
-                      style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "9px 10px", fontSize: "12px", outline: "none", fontFamily: "monospace" }} />
-                    <input value={chatId} onChange={e => setChatId(e.target.value)} placeholder="Chat ID (مثلاً: -100123456789)" dir="ltr"
-                      style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "9px 10px", fontSize: "12px", outline: "none", fontFamily: "monospace" }} />
-                    <button onClick={handleTelegramSend} disabled={isSendingTg} style={{ width: "100%", padding: "10px", background: isSendingTg ? "#334155" : "#3b82f6", color: "#fff", border: "none", borderRadius: "8px", cursor: isSendingTg ? "wait" : "pointer", fontSize: "13px", fontFamily: "'Cairo', sans-serif", fontWeight: 600 }}>
-                      {isSendingTg ? "⏳ جاري الإرسال..." : "✈️ إرسال البطاقة الحالية"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* ── Telegram bot status ── */}
-                <div style={SECTION}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "12px" }}>
-                    <span style={{ fontSize: "16px" }}>🤖</span>
-                    <p style={{ ...SL, marginBottom: 0 }}>بوت تيليغرام الآلي</p>
-                  </div>
-                  {botStatus ? (
-                    <div style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: "8px", padding: "10px 14px" }}>
-                      <div style={{ color: "#22c55e", fontSize: "13px", fontWeight: 600 }}>البوت مرتبط ✓</div>
-                      <div style={{ color: "#86efac", fontSize: "12px", fontFamily: "monospace" }}>@{botStatus.username}</div>
-                    </div>
-                  ) : (
-                    <div style={{ background: "rgba(71,85,105,0.2)", border: "1px solid #334155", borderRadius: "8px", padding: "10px 14px" }}>
-                      <div style={{ color: "#94a3b8", fontSize: "12px", direction: "rtl" }}>أرسل أي رسالة للبوت لاستخدامه — يُولّد بطاقات تلقائيًا من الصور والنصوص.</div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* ══ SETTINGS TAB ══ */}
-            {activeTab === "settings" && (
-              <>
-                {/* Aspect ratio */}
-                <div style={SECTION}>
-                  <p style={SL}>نسبة الصورة</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                    {(Object.entries(ASPECT_RATIOS) as [AspectRatio, { label: string; export: string }][]).map(([ratio, info]) => {
-                      const icons: Record<string, string> = { "1:1": "⬛", "16:9": "▬", "4:5": "▮", "9:16": "📱" };
-                      return (
-                        <button key={ratio} onClick={() => setAspectRatio(ratio)} style={{
-                          padding: "12px 8px", borderRadius: "10px",
-                          border: aspectRatio === ratio ? "2px solid #3b82f6" : "2px solid #1e293b",
-                          background: aspectRatio === ratio ? "#1e3a5f" : "#0f172a",
-                          color: aspectRatio === ratio ? "#93c5fd" : "#94a3b8",
-                          cursor: "pointer", fontFamily: "'Cairo', sans-serif", textAlign: "center",
-                        }}>
-                          <div style={{ fontSize: "20px", marginBottom: "4px" }}>{icons[ratio]}</div>
-                          <div style={{ fontWeight: 700, fontSize: "13px" }}>{info.label}</div>
-                          <div style={{ fontSize: "10px", opacity: 0.7, fontFamily: "monospace" }}>{info.export}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Logo position */}
-                <div style={SECTION}>
-                  <p style={SL}>موضع الشعار</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
-                    {([
-                      { pos: "top-right" as LogoPos,    label: "يمين ↑" },
-                      { pos: "top-left" as LogoPos,     label: "يسار ↑" },
-                      { pos: "bottom-right" as LogoPos, label: "يمين ↓" },
-                      { pos: "bottom-left" as LogoPos,  label: "يسار ↓" },
-                    ]).map(({ pos, label: lbl }) => (
-                      <button key={pos} onClick={() => setLogoPos(pos)} style={{
-                        padding: "9px", borderRadius: "8px",
-                        border: logoPos === pos ? "2px solid #3b82f6" : "2px solid #1e293b",
-                        background: logoPos === pos ? "#1e3a5f" : "#0f172a",
-                        color: logoPos === pos ? "#93c5fd" : "#94a3b8",
-                        cursor: "pointer", fontSize: "13px", fontFamily: "'Cairo', sans-serif",
-                      }}>
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Image position (shown only when bg image exists) */}
-                {bgImage && (
-                  <div style={SECTION}>
-                    <p style={SL}>موضع الصورة</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      {[
-                        { label: "أفقي", value: imgPositionX, onChange: setImgPositionX },
-                        { label: "عمودي", value: imgPositionY, onChange: setImgPositionY },
-                      ].map(({ label: lbl, value, onChange }) => (
-                        <div key={lbl}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#94a3b8", marginBottom: "4px" }}>
-                            <span>{lbl === "أفقي" ? "أفقي" : "عمودي"}</span>
-                            <div style={{ display: "flex", gap: "16px" }}>
-                              <span>{lbl === "أفقي" ? "يمين" : "أعلى"}</span>
-                              <span>{lbl === "أفقي" ? "يسار" : "أسفل"}</span>
-                            </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-6">
+                    {/* API Key Card */}
+                    <Card className="overflow-hidden border-2 border-primary/10 shadow-md">
+                      <CardHeader className="pb-4 bg-primary/5 border-b">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Zap className="w-5 h-5 text-primary" />
+                            <CardTitle className="text-sm font-bold">مفتاح الوصول (API Key)</CardTitle>
                           </div>
-                          <input type="range" min={0} max={100} value={value}
-                            onChange={e => onChange(+e.target.value)} style={{ width: "100%" }} />
+                          <Badge variant="outline" className="text-[10px] uppercase font-mono">X-Api-Key</Badge>
                         </div>
-                      ))}
-                    </div>
+                      </CardHeader>
+                      <CardContent className="pt-5 space-y-4">
+                        <div className="space-y-3">
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            استخدم هذا المفتاح للوصول إلى API من <span className="font-bold text-foreground">n8n</span> أو <span className="font-bold text-foreground">Make</span>. لا تشاركه مع أحد.
+                          </p>
+                          <div className="flex gap-2 relative">
+                            <Input 
+                              value={apiKeyVisible ? apiKey : "••••••••••••••••••••••••"} 
+                              readOnly 
+                              dir="ltr"
+                              className="bg-muted/50 font-mono text-xs pr-10"
+                            />
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="absolute right-12 h-8 w-8 p-0" 
+                              onClick={() => setApiKeyVisible(!apiKeyVisible)}
+                            >
+                              {apiKeyVisible ? "🙈" : "👁️"}
+                            </Button>
+                            <Button size="sm" variant="secondary" className="h-9 px-3" onClick={() => { if (apiKey) navigator.clipboard.writeText(apiKey); }}>
+                              نسخ
+                            </Button>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            className="w-full h-8 text-[10px] text-destructive hover:bg-destructive/10 border-destructive/20"
+                            disabled={apiKeyRegenerating}
+                            onClick={handleRegenerateApiKey}
+                          >
+                            {apiKeyRegenerating ? "جاري التجديد..." : "تجديد المفتاح"}
+                          </Button>
+                        </div>
+                      </CardContent>
+                      <div className="p-3 bg-muted/30 border-t flex flex-col gap-2 font-mono">
+                        <p className="text-[10px] text-muted-foreground">Endpoint: <span className="text-primary truncate">{window.location.origin}/api/generate</span></p>
+                      </div>
+                    </Card>
+
+                    {/* Telegram Bot Card */}
+                    <Card className="overflow-hidden shadow-md">
+                      <CardHeader className="pb-4 bg-blue-500/5 border-b">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Send className="w-5 h-5 text-blue-500" />
+                            <CardTitle className="text-sm font-bold">بوت تيليغرام</CardTitle>
+                          </div>
+                          {botStatus && (
+                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[9px] font-bold border border-green-500/20">
+                              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> متصل
+                            </div>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-5 space-y-6">
+                        {botStatus ? (
+                          <div className="p-4 rounded-xl border border-green-500/20 bg-green-500/5 flex items-center justify-between">
+                            <div className="space-y-1">
+                              <p className="text-xs font-bold text-green-600 truncate">@{botStatus.username} مرتبط</p>
+                              <p className="text-[10px] text-muted-foreground">البوت مفعّل وجاهز لاستلام الأوامر</p>
+                            </div>
+                            <CheckCircle2 className="w-6 h-6 text-green-500" />
+                          </div>
+                        ) : (
+                          <div className="p-4 rounded-xl border border-orange-500/20 bg-orange-500/5 space-y-3">
+                            <p className="text-xs text-orange-600 leading-relaxed font-medium">أرسل رسالة للبوت @{user?.botCode || 'NewsCardBot'} للربط تلقائياً</p>
+                            <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => window.open(`https://t.me/${user?.botCode || 'NewsCardBot'}`, '_blank')}>فتح في تيليغرام</Button>
+                          </div>
+                        )}
+
+                        <div className="space-y-4">
+                          <Label className="text-xs font-bold">إرسال سريع لقناة</Label>
+                          <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px]">Chat ID</Label>
+                              <Input 
+                                value={chatId} 
+                                onChange={e => setChatId(e.target.value)} 
+                                placeholder="-100123456789" 
+                                className="h-9 text-xs font-mono"
+                              />
+                            </div>
+                            <Button 
+                              className="w-full h-9 text-xs font-bold gap-2" 
+                              disabled={isSendingTg} 
+                              onClick={handleTelegramSend}
+                            >
+                              {isSendingTg ? "جاري الإرسال..." : <><Send className="w-3.5 h-3.5" /> إرسال البطاقة الحالية</>}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
+              </TabsContent>
 
-                {/* ── Watermark ── */}
-                <div style={SECTION}>
-                  <p style={SL}>علامة مائية (Watermark)</p>
-                  <p style={{ fontSize: "11px", color: "#475569", margin: "0 0 10px", direction: "rtl" }}>
-                    نص يظهر بشكل قطري شفاف فوق البطاقة كاملة
-                  </p>
-                  <input
-                    value={watermarkText}
-                    onChange={e => setWatermarkText(e.target.value)}
-                    placeholder="مثال: حقوق محفوظة ©"
-                    dir="rtl"
-                    style={{ width: "100%", background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#f1f5f9", padding: "9px 12px", fontSize: "13px", outline: "none", fontFamily: "'Cairo', sans-serif", marginBottom: "12px", boxSizing: "border-box" }}
-                  />
-                  {watermarkText && (
-                    <>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>
-                        <span>الشفافية</span>
-                        <span>{Math.round(watermarkOpacity * 100)}%</span>
+              <TabsContent value="settings" className="m-0 space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
+                <Accordion type="multiple" defaultValue={["item-ratio", "item-watermark"]} className="w-full space-y-4">
+                  
+                  {/* Aspect Ratio */}
+                  <AccordionItem value="item-ratio" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">أبعاد الصورة</span>
                       </div>
-                      <input
-                        type="range" min={5} max={80} step={1}
-                        value={Math.round(watermarkOpacity * 100)}
-                        onChange={e => setWatermarkOpacity(Number(e.target.value) / 100)}
-                        style={{ width: "100%" }}
-                      />
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#475569", marginTop: "2px" }}>
-                        <span>5%</span><span>خفيف جداً ← متوسط → واضح</span><span>80%</span>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        {(Object.entries(ASPECT_RATIOS) as [AspectRatio, { label: string; export: string }][]).map(([ratio, info]) => {
+                          const icons: Record<string, string> = { "1:1": "⬛", "16:9": "▬", "4:5": "▮", "9:16": "📱" };
+                          const isSelected = aspectRatio === ratio;
+                          return (
+                            <Button
+                              key={ratio}
+                              variant={isSelected ? "default" : "outline"}
+                              className={cn("h-auto py-3 flex-col gap-1 border-2", isSelected && "border-primary")}
+                              onClick={() => setAspectRatio(ratio)}
+                            >
+                              <span className="text-xl">{icons[ratio]}</span>
+                              <span className="font-bold text-xs">{info.label}</span>
+                              <span className="text-[9px] opacity-70 font-mono">{info.export}</span>
+                            </Button>
+                          );
+                        })}
                       </div>
-                    </>
-                  )}
-                </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                {/* Export info */}
-                <div style={SECTION}>
-                  <p style={SL}>معلومات التصدير</p>
-                  <div style={{ fontSize: "13px", color: "#94a3b8", lineHeight: 2.2 }}>
-                    <div>📐 النسبة: <strong style={{ color: "#f1f5f9" }}>{aspectRatio}</strong></div>
-                    <div>📏 المعاينة: <strong style={{ color: "#f1f5f9" }}>{cardW}×{cardH}</strong></div>
-                    <div>📤 التصدير: <strong style={{ color: "#f1f5f9" }}>{ASPECT_RATIOS[aspectRatio].export}</strong></div>
-                    <div>🎨 القالب: <strong style={{ color: "#f1f5f9" }}>{tmpl.name}</strong></div>
-                    <div>🔤 الخط: <strong style={{ color: "#f1f5f9" }}>{font}</strong></div>
-                  </div>
+                  {/* Positioning */}
+                  <AccordionItem value="item-pos" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Move className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">تموضع العناصر</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-4 space-y-6">
+                      <div className="space-y-4">
+                        <Label className="text-xs text-muted-foreground uppercase">موضع الشعار</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { pos: "top-right" as LogoPos,    label: "يمين ↑" },
+                            { pos: "top-left" as LogoPos,     label: "يسار ↑" },
+                            { pos: "bottom-right" as LogoPos, label: "يمين ↓" },
+                            { pos: "bottom-left" as LogoPos,  label: "يسار ↓" },
+                          ].map(({ pos, label: lbl }) => (
+                            <Button 
+                              key={pos} 
+                              variant={logoPos === pos ? "default" : "outline"}
+                              size="sm"
+                              className="h-9 text-[11px]"
+                              onClick={() => setLogoPos(pos)}
+                            >
+                              {lbl}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {bgImage && (
+                        <div className="space-y-6 pt-2 border-t">
+                          <Label className="text-xs text-muted-foreground uppercase">تموضع صورة الخلفية</Label>
+                          {[
+                            { label: "أفقي (يمين - يسار)", value: imgPositionX, onChange: setImgPositionX },
+                            { label: "عمودي (أعلى - أسفل)", value: imgPositionY, onChange: setImgPositionY },
+                          ].map((ctrl, i) => (
+                            <div key={i} className="space-y-3">
+                              <div className="flex justify-between text-[10px]">
+                                <span>{ctrl.label}</span>
+                                <span className="font-bold text-primary">{ctrl.value}%</span>
+                              </div>
+                              <Slider 
+                                value={[ctrl.value]} 
+                                onValueChange={([v]) => ctrl.onChange(v)}
+                                min={0} max={100}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Watermark Section */}
+                  <AccordionItem value="item-watermark" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-sm">العلامة المائية</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-4 space-y-5">
+                      <div className="space-y-2">
+                        <Label className="text-xs">نص العلامة (مثل اسم الموقع)</Label>
+                        <Input 
+                          value={watermarkText} 
+                          onChange={e => setWatermarkText(e.target.value)} 
+                          placeholder="BerrechidNews.com"
+                          className="h-10 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex justify-between">
+                          <Label className="text-xs text-muted-foreground">الشفافية</Label>
+                          <span className="text-xs font-bold">{Math.round(watermarkOpacity * 100)}%</span>
+                        </div>
+                        <Slider 
+                          value={[watermarkOpacity * 100]} 
+                          onValueChange={([v]) => setWatermarkOpacity(v / 100)}
+                          min={5} max={80}
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+
+                <div className="pt-4">
+                  <Button 
+                    className="w-full h-12 text-md font-bold gap-2 shadow-lg hover:shadow-primary/20 transition-all font-cairo"
+                    onClick={handleDownload}
+                    disabled={isDownloading}
+                  >
+                    {isDownloading ? "جاري التوليد..." : <><Save className="w-5 h-5" /> تحميل البطاقة الآن</>}
+                  </Button>
                 </div>
-              </>
-            )}
+              </TabsContent>
 
           </div>
-        </aside>
+        </ScrollArea>
+      </aside>
 
         {/* ── Right: Card preview ── */}
-        <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", background: "#0a0f1a", overflowY: "auto", gap: "14px" }}>
-
+        <main className="flex-1 flex flex-col items-center justify-center p-6 bg-muted/20 overflow-y-auto min-w-0">
           {/* Card */}
           <div
             ref={cardRef}
@@ -1964,7 +2077,6 @@ export default function Generate() {
           </div>
 
         </main>
-      </div>
-    </div>
+    </Tabs>
   );
 }

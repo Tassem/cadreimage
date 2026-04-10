@@ -22,7 +22,7 @@ const navigation = [
 
 export function Sidebar() {
   const [location, setLocation] = useLocation();
-  const { data: user } = useGetMe({ query: { enabled: !!localStorage.getItem("pro_token"), queryKey: getGetMeQueryKey() } });
+  const { data: user } = useGetMe({ query: { enabled: !!localStorage.getItem("pro_token"), queryKey: getGetMeQueryKey(), staleTime: 0, refetchOnWindowFocus: true } });
 
   const handleLogout = () => {
     localStorage.removeItem("pro_token");
@@ -43,6 +43,15 @@ export function Sidebar() {
       <div className="flex-1 overflow-auto py-4">
         <nav className="space-y-1 px-2">
           {navigation.map((item) => {
+            // Gate features using live planDetails from the API (reflects admin changes immediately)
+            const isAdmin = user?.isAdmin;
+            const canUseBot = isAdmin || user?.planDetails?.telegramBot === true;
+            const canUseApi = isAdmin || user?.planDetails?.apiAccess === true;
+
+            if (item.href === "/admin" && !isAdmin) return null;
+            if (item.href === "/telegram" && !canUseBot) return null;
+            if (item.href === "/keys" && !canUseApi) return null;
+
             const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
             return (
               <Link
